@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+
+// ▼NextAuth(ログイン機能)が使う標準テーブル
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+// ▼ユーザー情報（生徒）のテーブル
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // --- 入退室システム用の独自追加データ ---
+  studentId     String?   @unique         // 学籍番号（メールアドレスから自動抽出）
+  parentEmail   String?                   // 保護者のメールアドレス
+  isRegistered  Boolean   @default(false) // 初回登録が終わっているか？
+  currentStatus String    @default("OUT") // 現在の状況（"IN"=在室 / "OUT"=退室）
+  
+  logs          AttendanceLog[]           // 入退室履歴との紐付け
+}
+
+// ▼入退室の履歴テーブル
+model AttendanceLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // "IN" (入室) または "OUT" (退室)
+  timestamp DateTime @default(now()) // 打刻された時間
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
