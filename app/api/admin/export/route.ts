@@ -47,9 +47,15 @@ export async function GET() {
         // BOM付きのUTF-8で出力（Excelで文字化けしないようにするため）
         const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
 
+        // CSV文字列をBufferに変換（UTF-8）
+        const csvBuffer = Buffer.from(csvContent, 'utf-8');
+
+        // BOMとCSVの中身を結合
+        const finalBuffer = Buffer.concat([bom, csvBuffer]);
+
         // BlobやBufferを使わずともNode.js Responseでは文字として送れる
         // より確実にするためのHeaders設定
-        return new NextResponse(csvContent, {
+        return new NextResponse(finalBuffer, {
             status: 200,
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",

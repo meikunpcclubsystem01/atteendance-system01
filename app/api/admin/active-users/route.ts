@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 // 常に最新データを取得させるため、キャッシュを無効化する設定
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+  if (!adminEmails.includes(session.user.email)) {
+    return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+  }
+
   try {
     // ステータスが "IN" (在室) のユーザーを全員取得
     const activeUsers = await prisma.user.findMany({
