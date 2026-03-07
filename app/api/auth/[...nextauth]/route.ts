@@ -41,7 +41,7 @@ export const authOptions: NextAuthOptions = {
         session.user.validUntil = user.validUntil;
 
         // 管理者判定
-        const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+        const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
         session.user.isAdmin = !!(user.email && adminEmails.includes(user.email));
       }
       return session;

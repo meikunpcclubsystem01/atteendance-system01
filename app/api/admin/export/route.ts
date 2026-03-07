@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     // 管理者チェック
-    const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+    const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
     if (!adminEmails.includes(session.user.email)) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
@@ -41,7 +41,14 @@ export async function GET() {
             const remarks = log.remarks || "";
 
             // 値にカンマが含まれる場合はダブルクォーテーションで囲む簡易エスケープ
-            const escapeCsv = (str: string) => `"${str.replace(/"/g, '""')}"`;
+            // 脆弱性対策：CSV Injection (数式インジェクション) を防ぐため、先頭の危険な文字をエスケープ
+            const escapeCsv = (str: string) => {
+                let escaped = str.replace(/"/g, '""');
+                if (/^[=\+\-@]/.test(escaped)) {
+                    escaped = "'" + escaped;
+                }
+                return `"${escaped}"`;
+            };
 
             csvContent += `${escapeCsv(dateStr)},${escapeCsv(userName)},${escapeCsv(studentId)},${actionStr},${escapeCsv(remarks)}\n`;
         });

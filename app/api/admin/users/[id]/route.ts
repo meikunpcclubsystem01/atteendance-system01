@@ -9,7 +9,7 @@ async function isAdmin() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return false;
 
-  const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+  const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
   return adminEmails.includes(session.user.email);
 }
 

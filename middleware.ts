@@ -21,7 +21,7 @@ export default withAuth(
         // アクセス先が管理者用URLの場合
         if (isAdminRoute) {
           // .env に設定した管理者リストを取得
-          const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+          const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
 
           // ログインしており、かつメールアドレスが管理者リストに含まれているか判定
           if (token?.email && adminEmails.includes(token.email)) {

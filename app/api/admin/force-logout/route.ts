@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+  const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
   if (!adminEmails.includes(session.user.email)) {
     return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
   }
