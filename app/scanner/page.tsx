@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
+import SeatMap from "@/components/SeatMap";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -16,7 +17,7 @@ export default function ScannerPage() {
     refreshInterval: 5000,
   });
 
-  // 全座席リスト (例として 1〜30番 まで)
+  // 全座席リスト (ドロップダウンは使わなくなりましたが、マッピング用に残しています)
   const allSeats = Array.from({ length: 30 }, (_, i) => `${i + 1}番`);
 
   // 画面を開いたときに自動で入力ボックスにフォーカスを当てる
@@ -26,9 +27,15 @@ export default function ScannerPage() {
     }
 
     // 画面をクリックしたら再フォーカス（フォーカス外れ防止）
-    const handleClick = () => {
-      // セレクトボックス以外をクリックしたときのみ再フォーカス
-      if (document.activeElement?.tagName !== "SELECT" && inputRef.current) {
+    const handleClick = (e: MouseEvent) => {
+      // SeatMap内のボタンがクリックされた時はフォーカスを奪わないようにする
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName !== "SELECT" &&
+        target.tagName !== "BUTTON" &&
+        !target.closest('button') &&
+        inputRef.current
+      ) {
         inputRef.current.focus();
       }
     };
@@ -86,27 +93,22 @@ export default function ScannerPage() {
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-4xl font-bold mb-8">QRコード読み取り機</h1>
 
-      <div className="mb-8 p-6 bg-gray-800 rounded-xl shadow-lg w-full max-w-2xl text-center">
-        <label className="block text-xl text-gray-300 mb-4 font-bold">
+      <div className="mb-4 text-center">
+        <label className="block text-xl text-gray-300 mb-2 font-bold">
           入室する座席を選んでからスキャンしてください<br />
           <span className="text-sm text-gray-500 font-normal">※退室時は座席選択不要です</span>
         </label>
-        <select
-          value={selectedSeat}
-          onChange={(e) => setSelectedSeat(e.target.value)}
-          className="w-full max-w-sm p-3 rounded-lg text-black text-xl text-center"
-          onBlur={() => inputRef.current?.focus()} // 選択後フォーカスを戻す
-        >
-          <option value="">-- 座席未選択 --</option>
-          {allSeats.map(seat => {
-            const isOccupied = seatData?.occupiedSeats?.includes(seat);
-            return (
-              <option key={seat} value={seat} disabled={isOccupied}>
-                {seat} {isOccupied ? "(使用中)" : ""}
-              </option>
-            );
-          })}
-        </select>
+
+        {/* ビジュアル座席マップコンポーネント */}
+        <SeatMap
+          selectedSeat={selectedSeat}
+          onSelectSeat={(seat) => {
+            setSelectedSeat(seat);
+            // 座席選択直後にQRリーダー入力待機状態へフォーカスを戻す
+            setTimeout(() => inputRef.current?.focus(), 100);
+          }}
+          occupiedSeats={seatData?.occupiedSeats || []}
+        />
       </div>
 
       {/* 隠し入力ボックス（ここにQRリーダーが文字を入力します） */}
