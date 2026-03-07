@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import Link from "next/link";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -61,15 +62,33 @@ export default function Home() {
         </p>
       </div>
 
-      {/* QRコード表示エリア */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col items-center">
-        {qrToken ? (
-          <QRCodeSVG value={qrToken} size={200} level={"H"} />
-        ) : (
-          <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded"></div>
-        )}
-        <p className="text-xs text-gray-500 mt-4">QRコードは自動で更新されます</p>
-      </div>
+      {/* コンテンツ表示エリア (管理者 vs 生徒) */}
+      {session.user.isAdmin ? (
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col gap-4 w-full max-w-sm">
+          <p className="text-center text-gray-700 font-semibold mb-2">管理者メニュー</p>
+          <Link
+            href="/admin"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded shadow text-center transition-colors"
+          >
+            🖥️ 管理ダッシュボードを開く
+          </Link>
+          <Link
+            href="/scanner"
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded shadow text-center transition-colors"
+          >
+            📱 QRスキャナーを開く
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col items-center">
+          {qrToken ? (
+            <QRCodeSVG value={qrToken} size={200} level={"H"} />
+          ) : (
+            <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded"></div>
+          )}
+          <p className="text-xs text-gray-500 mt-4">QRコードは自動で更新されます</p>
+        </div>
+      )}
 
       <button
         onClick={() => signOut()}

@@ -37,6 +37,10 @@ export const authOptions: NextAuthOptions = {
         session.user.studentId = user.studentId;
         session.user.isRegistered = user.isRegistered;
         session.user.currentStatus = user.currentStatus;
+
+        // 管理者判定
+        const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+        session.user.isAdmin = !!(user.email && adminEmails.includes(user.email));
       }
       return session;
     },

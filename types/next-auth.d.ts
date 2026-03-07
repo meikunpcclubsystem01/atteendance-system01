@@ -7,6 +7,7 @@ declare module "next-auth" {
       studentId?: string | null
       isRegistered?: boolean
       currentStatus?: string
+      isAdmin?: boolean
     } & DefaultSession["user"]
   }
 
@@ -14,5 +15,6 @@ declare module "next-auth" {
     studentId?: string | null
     isRegistered?: boolean
     currentStatus?: string
+    isAdmin?: boolean
   }
 }
