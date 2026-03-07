@@ -13,6 +13,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Prismaクライアントの生成とNext.jsのビルド
+# .envは.dockerignoreで除外されているため、ビルド時のみダミー変数を渡す
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
 RUN npm run build
 
