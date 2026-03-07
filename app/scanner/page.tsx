@@ -185,7 +185,7 @@ export default function ScannerPage() {
       {/* 隠し入力ボックス（ここにQRリーダーが文字を入力します） */}
       <input
         ref={inputRef}
-        type="text"
+        type="password" // IME(日本語入力)を強制無効化し、全角入力の誤動作を防ぐ（QK30-Uなどのバーコードリーダー対応）
         className="opacity-0 absolute h-0 w-0 -z-10" // 完全に隠す（focusできるようにする）
         onKeyDown={handleScan}
         autoFocus
