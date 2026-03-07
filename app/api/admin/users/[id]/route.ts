@@ -54,6 +54,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { id } = await params;
+
+    // 自爆（自分自身の削除）防止機能
+    const session = await getServerSession(authOptions);
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (session?.user?.email && targetUser?.email === session.user.email) {
+      return NextResponse.json({ error: "Cannot delete your own admin account" }, { status: 400 });
+    }
+
     // AttendanceLog は Prisma のスキーマ設定 (onDelete: Cascade) により自動削除されますが、
     // 明示的にトランザクションで削除することも可能です。今回は単一削除でCascadeに依存します。
     await prisma.user.delete({
