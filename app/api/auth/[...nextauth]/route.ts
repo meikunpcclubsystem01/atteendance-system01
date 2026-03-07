@@ -22,27 +22,43 @@ export const authOptions: NextAuthOptions = {
     // ▼ ここから追加: ログイン時のドメインチェック
     async signIn({ user }) {
       const allowedDomain = process.env.ALLOWED_DOMAIN || "niigata-meikun.ed.jp";
-      // メアドが存在し、かつ指定ドメインで終わる場合のみ true (許可)
+      const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
+
+      // 1. 管理者として登録されているメールアドレスは、ドメイン問わず無条件でログイン許可
+      if (user.email && adminEmails.includes(user.email)) {
+        return true;
+      }
+
+      // 2. 一般生徒の場合は、指定ドメイン（学校のドメイン）で終わる場合のみ許可
       if (user.email && user.email.endsWith(`@${allowedDomain}`)) {
         return true;
       }
-      // それ以外はアクセス拒否のエラーページへ弾く
+
+      // それ以外（個人のGmailなど）はアクセス拒否のエラーページへ弾く
       return "/api/auth/signin?error=AccessDenied";
     },
     // ▲ ここまで追加
 
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        session.user.studentId = user.studentId;
-        session.user.isRegistered = user.isRegistered;
-        session.user.currentStatus = user.currentStatus;
-        session.user.validFrom = user.validFrom;
-        session.user.validUntil = user.validUntil;
+    async session({ session, token }) {
+      if (session.user && token?.sub) {
+        // JWTストラテジーを使用しているため、セッションコールバックに user オブジェクトが含まれない。
+        // 代わりに token.sub (ユーザーID) を使って、毎回DBから最新の状態を取得する。
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+        });
 
-        // 管理者判定
-        const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
-        session.user.isAdmin = !!(user.email && adminEmails.includes(user.email));
+        if (dbUser) {
+          session.user.id = dbUser.id;
+          session.user.studentId = dbUser.studentId;
+          session.user.isRegistered = dbUser.isRegistered;
+          session.user.currentStatus = dbUser.currentStatus;
+          session.user.validFrom = dbUser.validFrom;
+          session.user.validUntil = dbUser.validUntil;
+
+          // 管理者判定
+          const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];
+          session.user.isAdmin = !!(dbUser.email && adminEmails.includes(dbUser.email));
+        }
       }
       return session;
     },
