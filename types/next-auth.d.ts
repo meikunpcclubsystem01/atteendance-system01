@@ -8,6 +8,8 @@ declare module "next-auth" {
       isRegistered?: boolean
       currentStatus?: string
       isAdmin?: boolean
+      validFrom?: Date | null
+      validUntil?: Date | null
     } & DefaultSession["user"]
   }
 
@@ -16,5 +18,7 @@ declare module "next-auth" {
     isRegistered?: boolean
     currentStatus?: string
     isAdmin?: boolean
+    validFrom?: Date | null
+    validUntil?: Date | null
   }
 }

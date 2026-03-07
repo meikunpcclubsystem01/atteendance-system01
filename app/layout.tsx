@@ -7,7 +7,14 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "入退室システム",
-  description: "QRコードによる入退室管理",
+  description: "新潟明訓100周年記念会館 自習室入退室管理",
+  manifest: "/manifest.json",
+  themeColor: "#111827",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "自習室",
+  },
 };
 
 export default function RootLayout({

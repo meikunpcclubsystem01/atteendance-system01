@@ -21,9 +21,18 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
 
+  // 現在時刻（時計アニメーション ＋ 制限時間計算用）
+  const [now, setNow] = useState<Date>(new Date());
+
   // 混雑状況用
   const [occupiedCount, setOccupiedCount] = useState<number>(0);
   const TOTAL_SEATS = 30; // 自習室の総座席数
+
+  // 時計の更新（毎秒）
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ログインしていない場合や未登録の場合のチェック
   useEffect(() => {
@@ -88,6 +97,11 @@ export default function Home() {
 
   if (!session) return null;
 
+  // 利用期間の判定
+  const validFrom = session.user.validFrom ? new Date(session.user.validFrom) : null;
+  const validUntil = session.user.validUntil ? new Date(session.user.validUntil) : null;
+  const isOutOfPeriod = (validFrom && now < validFrom) || (validUntil && now > validUntil);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white text-black">
       <h1 className="text-2xl font-bold mb-4">
@@ -130,7 +144,7 @@ export default function Home() {
             <div className="w-full bg-gray-200 rounded-full h-3 mb-1 overflow-hidden">
               <div
                 className={`h-3 rounded-full transition-all duration-500 ${(occupiedCount / TOTAL_SEATS) > 0.8 ? 'bg-red-500' :
-                    (occupiedCount / TOTAL_SEATS) > 0.5 ? 'bg-yellow-400' : 'bg-green-500'
+                  (occupiedCount / TOTAL_SEATS) > 0.5 ? 'bg-yellow-400' : 'bg-green-500'
                   }`}
                 style={{ width: `${Math.min((occupiedCount / TOTAL_SEATS) * 100, 100)}%` }}
               ></div>
@@ -139,13 +153,42 @@ export default function Home() {
           </div>
 
           {/* QRコード表示エリア */}
-          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col items-center w-full">
-            {qrToken ? (
-              <QRCodeSVG value={qrToken} size={200} level={"H"} />
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col items-center w-full relative overflow-hidden">
+            {isOutOfPeriod ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-red-50 text-red-600 rounded-lg border border-red-200 w-full min-h-[250px] text-center">
+                <p className="text-4xl mb-4">🚫</p>
+                <p className="font-bold text-lg mb-2">現在は利用期間外です</p>
+                <p className="text-xs text-red-500">
+                  {validFrom && now < validFrom ? `利用開始: ${validFrom.toLocaleDateString("ja-JP")} から` : ""}
+                  {validUntil && now > validUntil ? `利用期限: ${validUntil.toLocaleDateString("ja-JP")} で終了しました` : ""}
+                </p>
+              </div>
             ) : (
-              <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded"></div>
+              <>
+                <div className="relative p-2 rounded-lg bg-white z-10">
+                  {/* アニメーションする枠線でスクショを防止 */}
+                  <div className="absolute inset-0 border-4 border-transparent rounded-lg animate-[spin_5s_linear_infinite]"
+                    style={{ backgroundImage: 'linear-gradient(white, white), conic-gradient(from 0deg, #3b82f6, #10b981, #f59e0b, #3b82f6)', backgroundOrigin: 'border-box', backgroundClip: 'content-box, border-box' }}>
+                  </div>
+                  <div className="relative bg-white p-2">
+                    {qrToken ? (
+                      <QRCodeSVG value={qrToken} size={200} level={"H"} />
+                    ) : (
+                      <div className="w-[200px] h-[200px] bg-gray-200 animate-pulse rounded"></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 秒単位のリアルタイム時計 */}
+                <div className="mt-6 text-center font-mono w-full bg-gray-800 text-white py-2 rounded-lg shadow-inner">
+                  <p className="text-xl font-bold tracking-widest">
+                    {now.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo" })}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1">※この時計が止まっている画面は無効です</p>
+                </div>
+                <p className="text-xs text-gray-500 mt-4">QRコードは30秒自動更新</p>
+              </>
             )}
-            <p className="text-xs text-gray-500 mt-4">QRコードは自動で更新されます</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 w-full">

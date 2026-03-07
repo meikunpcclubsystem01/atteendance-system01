@@ -1,0 +1,16 @@
+{
+    "name": "明訓PC部 入退室システム",
+    "short_name": "入退室システム",
+    "description": "新潟明訓高校 100周年記念会館 自習室入退室管理システム",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#111827",
+    "theme_color": "#111827",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "any",
+            "type": "image/x-icon"
+        }
+    ]
+}

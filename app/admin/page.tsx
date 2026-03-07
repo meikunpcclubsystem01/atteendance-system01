@@ -58,7 +58,7 @@ export default function AdminPage() {
     if (!logs || logs.length === 0) return { inTime: "-", duration: "-" };
 
     const inDate = new Date(logs[0].timestamp);
-    const inTimeStr = inDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const inTimeStr = inDate.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
 
     const ms = now.getTime() - inDate.getTime();
     if (ms <= 0) return { inTime: inTimeStr, duration: "0分" };
@@ -86,6 +86,13 @@ export default function AdminPage() {
             <Link href="/admin/history" className="text-indigo-600 hover:underline font-bold">
               日別履歴表示
             </Link>
+            <a
+              href="/api/admin/export"
+              download
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-4 py-2 rounded shadow transition"
+            >
+              CSVダウンロード
+            </a>
             <span className="bg-green-100 text-green-800 text-lg font-bold px-4 py-2 rounded-full">
               現在 {users.length} 名
             </span>

@@ -16,14 +16,26 @@ function formatDuration(ms: number) {
     return `${minutes}分`;
 }
 
-// 日付を「YYYY/MM/DD」フォーマットにするヘルパー
+// 日付を「YYYY/MM/DD」フォーマットにするヘルパー (日本時間強制)
 function formatDate(date: Date) {
-    return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+    const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    });
+    // Chrome等では "2024/05/01" となるが、一部環境の対策として "-" を "/" に置換
+    return formatter.format(date).replace(/-/g, '/');
 }
 
-// 時刻を「HH:MM」フォーマットにするヘルパー
+// 時刻を「HH:MM」フォーマットにするヘルパー (日本時間強制)
 function formatTime(date: Date) {
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    const formatter = new Intl.DateTimeFormat("ja-JP", {
+        timeZone: "Asia/Tokyo",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+    return formatter.format(date);
 }
 
 export async function GET() {

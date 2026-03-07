@@ -37,6 +37,8 @@ export const authOptions: NextAuthOptions = {
         session.user.studentId = user.studentId;
         session.user.isRegistered = user.isRegistered;
         session.user.currentStatus = user.currentStatus;
+        session.user.validFrom = user.validFrom;
+        session.user.validUntil = user.validUntil;
 
         // 管理者判定
         const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
