@@ -35,6 +35,7 @@ export default function Home() {
   // 初回表示時と、その後30秒ごとに実行
   useEffect(() => {
     if (status === "authenticated") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchQrToken();
       const interval = setInterval(fetchQrToken, 30000); // 30秒ごと
       return () => clearInterval(interval);
@@ -52,7 +53,7 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-4">
         こんにちは、{session.user.name || session.user.studentId}さん
       </h1>
-      
+
       <div className="bg-gray-100 p-4 rounded-lg mb-8 text-center">
         <p className="text-sm text-gray-600 mb-1">現在のステータス</p>
         <p className={`text-2xl font-bold ${session.user.currentStatus === "IN" ? "text-green-600" : "text-gray-500"}`}>
@@ -70,8 +71,8 @@ export default function Home() {
         <p className="text-xs text-gray-500 mt-4">QRコードは自動で更新されます</p>
       </div>
 
-      <button 
-        onClick={() => signOut()} 
+      <button
+        onClick={() => signOut()}
         className="text-red-500 underline hover:text-red-700 text-sm"
       >
         ログアウト

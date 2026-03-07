@@ -4,9 +4,15 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
 // ▼ ここに export const authOptions を追加しました
+import { Adapter } from "next-auth/adapters";
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
-  providers:[
+  adapter: PrismaAdapter(prisma) as Adapter,
+  session: {
+    // Middleware(withAuth)はJWTでないと動作しないため、PrismaAdapter使用時も強制的にJWTを使用する
+    strategy: "jwt"
+  },
+  providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
@@ -24,7 +30,7 @@ export const authOptions: NextAuthOptions = {
       return "/api/auth/signin?error=AccessDenied";
     },
     // ▲ ここまで追加
-    
+
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
@@ -43,7 +49,6 @@ export const authOptions: NextAuthOptions = {
           where: { id: user.id },
           data: { studentId: studentId },
         });
-        console.log(`🎊 新規ユーザー登録完了: 学籍番号 ${studentId}`);
       }
     },
   },

@@ -57,6 +57,10 @@ model User {
   isRegistered  Boolean   @default(false) // 初回登録が終わっているか？
   currentStatus String    @default("OUT") // 現在の状況（"IN"=在室 / "OUT"=退室）
   
+  validFrom     DateTime?                 // 許可期間開始
+  validUntil    DateTime?                 // 許可期間終了
+  currentSeat   String?                   // 現在使用中の座席番号
+
   logs          AttendanceLog[]           // 入退室履歴との紐付け
 }
 
@@ -66,6 +70,7 @@ model AttendanceLog {
   userId    String
   action    String   // "IN" (入室) または "OUT" (退室)
   timestamp DateTime @default(now()) // 打刻された時間
+  remarks   String?  // 手動退出などの備考
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

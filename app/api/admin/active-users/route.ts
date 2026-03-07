@@ -16,7 +16,16 @@ export async function GET() {
         studentId: true,
         name: true,
         email: true,
-        // 必要ならここに他の項目も追加
+        currentSeat: true,
+        logs: {
+          select: {
+            timestamp: true
+          },
+          orderBy: {
+            timestamp: 'desc'
+          },
+          take: 1
+        }
       },
       orderBy: {
         studentId: 'asc', // 学籍番号順に並べる
@@ -24,7 +33,7 @@ export async function GET() {
     });
 
     return NextResponse.json(activeUsers);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }
