@@ -14,7 +14,6 @@ export default function ScannerPage() {
   const [statusMessage, setStatusMessage] = useState<string>("QRスキャン待機中...");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 定期的に使用中の座席を取得（5秒間隔）
   const { data: seatData, mutate: mutateSeats } = useSWR<{ occupiedSeats: string[] }>("/api/seats", fetcher, {
     refreshInterval: 5000,
   });
@@ -41,6 +40,16 @@ export default function ScannerPage() {
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, []);
+
+  // エラー/成功メッセージの自動フェードアウト (5秒後に初期化)
+  useEffect(() => {
+    if (statusMessage !== "QRスキャン待機中..." && scannerMode === "IDLE") {
+      const timer = setTimeout(() => {
+        setStatusMessage("QRスキャン待機中...");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage, scannerMode]);
 
   // QRコードが読み込まれた（Enterキーが押された）ときの処理
   const handleScan = async (e: React.KeyboardEvent<HTMLInputElement>) => {

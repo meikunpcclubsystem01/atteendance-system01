@@ -55,12 +55,25 @@ export async function POST(req: Request) {
     // ステータス反転と座席の処理
     const newStatus = user.currentStatus === "IN" ? "OUT" : "IN";
 
-    // 5. 座席管理
+    // 5. 座席管理と競合（ダブルブッキング）防止ロック
     let nextSeat = null;
     if (newStatus === "IN") {
       if (!seat) {
         return NextResponse.json({ error: "入室時は座席を指定してください" }, { status: 400 });
       }
+
+      // 競合チェック：リクエストされた座席が、すでに誰かに使われていないかデータベースを直接確認する
+      const existingUserInSeat = await prisma.user.findFirst({
+        where: {
+          currentStatus: "IN",
+          currentSeat: seat
+        }
+      });
+
+      if (existingUserInSeat) {
+        return NextResponse.json({ error: "その座席はタッチの差で他の方に取られてしまいました。別の席を選んでください" }, { status: 409 });
+      }
+
       nextSeat = seat;
     }
 

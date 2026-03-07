@@ -1,33 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// 管理者権限チェック用のユーティリティ関数
+async function isAdmin() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return false;
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+  return adminEmails.includes(session.user.email);
+}
+
+// ユーザー情報（有効期限・学籍番号）の更新
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!await isAdmin()) {
+    return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
-    const userId = id;
-    const body = await req.json();
-    
-    // フロントエンドからは "YYYY-MM-DD" で送られてくる想定。
-    // そのまま new Date() すると UTC の 00:00:00 (JST の 09:00:00) となってしまうため、
-    // 明示的に JST (+09:00) の時刻文字列として処理する
-    const validFrom = body.validFrom ? new Date(`${body.validFrom}T00:00:00+09:00`) : null;
-    const validUntil = body.validUntil ? new Date(`${body.validUntil}T23:59:59+09:00`) : null;
+    const { validFrom, validUntil, studentId } = await req.json();
 
-    if (validFrom && isNaN(validFrom.getTime())) {
-      return NextResponse.json({ error: "Invalid validFrom date format" }, { status: 400 });
-    }
-    if (validUntil && isNaN(validUntil.getTime())) {
-      return NextResponse.json({ error: "Invalid validUntil date format" }, { status: 400 });
-    }
+    const data: Prisma.UserUpdateInput = {};
+    if (validFrom !== undefined) data.validFrom = validFrom ? new Date(validFrom) : null;
+    if (validUntil !== undefined) data.validUntil = validUntil ? new Date(validUntil) : null;
+    if (studentId !== undefined) data.studentId = studentId === "" ? null : studentId;
 
     const user = await prisma.user.update({
-      where: { id: userId },
-      data: { validFrom, validUntil }
+      where: { id },
+      data,
     });
 
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json(user);
   } catch (error) {
-    console.error("Update user error:", error);
+    console.error("Failed to update user:", error);
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+  }
+}
+
+// ユーザーアカウントの完全削除
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!await isAdmin()) {
+    return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+  }
+
+  try {
+    const { id } = await params;
+    // AttendanceLog は Prisma のスキーマ設定 (onDelete: Cascade) により自動削除されますが、
+    // 明示的にトランザクションで削除することも可能です。今回は単一削除でCascadeに依存します。
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete user:", error);
+    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
 }

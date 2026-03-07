@@ -18,7 +18,7 @@ interface User {
 export default function AdminUsersPage() {
   const { data: users, error, mutate } = useSWR<User[]>("/api/admin/users", fetcher);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ validFrom: "", validUntil: "" });
+  const [editForm, setEditForm] = useState({ studentId: "", validFrom: "", validUntil: "" });
 
   if (error) return <div className="p-8 text-red-500">エラーが発生しました</div>;
   if (!users) return <div className="p-8">読み込み中...</div>;
@@ -26,6 +26,7 @@ export default function AdminUsersPage() {
   const handleEditClick = (user: User) => {
     setEditingUserId(user.id);
     setEditForm({
+      studentId: user.studentId || "",
       validFrom: user.validFrom ? new Date(user.validFrom).toISOString().split('T')[0] : "",
       validUntil: user.validUntil ? new Date(user.validUntil).toISOString().split('T')[0] : "",
     });
@@ -37,6 +38,7 @@ export default function AdminUsersPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          studentId: editForm.studentId,
           validFrom: editForm.validFrom || null,
           validUntil: editForm.validUntil || null,
         }),
@@ -47,6 +49,26 @@ export default function AdminUsersPage() {
         setEditingUserId(null);
       } else {
         alert("保存に失敗しました");
+      }
+    } catch (_error) {
+      alert("通信エラーが発生しました");
+    }
+  };
+
+  const handleDelete = async (userId: string, userName: string | null) => {
+    if (!window.confirm(`${userName || 'このユーザー'} のアカウントとすべての履歴を完全に削除します。よろしいですか？`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        mutate();
+      } else {
+        alert("削除に失敗しました");
       }
     } catch (_error) {
       alert("通信エラーが発生しました");
@@ -77,17 +99,24 @@ export default function AdminUsersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.studentId}</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
-
                   {editingUserId === user.id ? (
                     <>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <input
+                          type="text"
+                          value={editForm.studentId}
+                          onChange={(e) => setEditForm({ ...editForm, studentId: e.target.value })}
+                          className="border rounded px-2 py-1 bg-white w-24 text-black"
+                          placeholder="学籍番号"
+                        />
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <input
                           type="date"
                           value={editForm.validFrom}
                           onChange={(e) => setEditForm({ ...editForm, validFrom: e.target.value })}
-                          className="border rounded px-2 py-1 bg-white"
+                          className="border rounded px-2 py-1 bg-white text-black"
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
@@ -95,7 +124,7 @@ export default function AdminUsersPage() {
                           type="date"
                           value={editForm.validUntil}
                           onChange={(e) => setEditForm({ ...editForm, validUntil: e.target.value })}
-                          className="border rounded px-2 py-1 bg-white"
+                          className="border rounded px-2 py-1 bg-white text-black"
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
@@ -109,24 +138,32 @@ export default function AdminUsersPage() {
                           onClick={() => setEditingUserId(null)}
                           className="bg-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-400"
                         >
-                          キャンセル
+                          ｷｬﾝｾﾙ
                         </button>
                       </td>
                     </>
                   ) : (
                     <>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.studentId}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.validFrom ? new Date(user.validFrom).toLocaleDateString() : "未設定"}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.validUntil ? new Date(user.validUntil).toLocaleDateString() : "未設定"}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm flex gap-3">
                         <button
                           onClick={() => handleEditClick(user)}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="text-indigo-600 hover:text-indigo-900 font-bold"
                         >
                           編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id, user.name)}
+                          className="text-red-600 hover:text-red-900 font-bold"
+                        >
+                          削除
                         </button>
                       </td>
                     </>
@@ -137,6 +174,6 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
