@@ -21,6 +21,10 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
 
+  // 混雑状況用
+  const [occupiedCount, setOccupiedCount] = useState<number>(0);
+  const TOTAL_SEATS = 30; // 自習室の総座席数
+
   // ログインしていない場合や未登録の場合のチェック
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -30,24 +34,32 @@ export default function Home() {
     }
   }, [status, session, router]);
 
-  // 30秒ごとに新しいQRコード用トークンを取得する関数
-  const fetchQrToken = async () => {
+  // 30秒ごとに新しいQRコード用トークンと混雑状況を取得する関数
+  const fetchData = async () => {
     try {
-      const res = await fetch("/api/qr");
-      const data = await res.json();
-      if (data.token) {
-        setQrToken(data.token);
+      // QRトークンの取得
+      const resQr = await fetch("/api/qr");
+      const dataQr = await resQr.json();
+      if (dataQr.token) {
+        setQrToken(dataQr.token);
+      }
+
+      // 混雑状況の取得
+      const resSeats = await fetch("/api/seats");
+      const dataSeats = await resSeats.json();
+      if (dataSeats.occupiedSeats) {
+        setOccupiedCount(dataSeats.occupiedSeats.length);
       }
     } catch (error) {
-      console.error("QRトークン取得エラー:", error);
+      console.error("データ取得エラー:", error);
     }
   };
 
   // 初回表示時と、その後30秒ごとに実行
   useEffect(() => {
     if (status === "authenticated") {
-      fetchQrToken();
-      const interval = setInterval(fetchQrToken, 30000); // 30秒ごと
+      fetchData();
+      const interval = setInterval(fetchData, 30000); // 30秒ごと
       return () => clearInterval(interval);
     }
   }, [status]);
@@ -108,6 +120,25 @@ export default function Home() {
         </div>
       ) : (
         <div className="w-full max-w-sm flex flex-col items-center">
+          {/* 混雑状況メーター */}
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-6 w-full text-center">
+            <h2 className="text-gray-600 text-sm font-semibold mb-2">現在の自習室の混雑状況</h2>
+            <div className="flex justify-between items-end mb-1">
+              <span className="text-2xl font-bold text-gray-800">{occupiedCount} <span className="text-sm font-normal text-gray-500">/ {TOTAL_SEATS} 人</span></span>
+              <span className="text-sm font-bold text-blue-600">{Math.round((occupiedCount / TOTAL_SEATS) * 100)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-1 overflow-hidden">
+              <div
+                className={`h-3 rounded-full transition-all duration-500 ${(occupiedCount / TOTAL_SEATS) > 0.8 ? 'bg-red-500' :
+                    (occupiedCount / TOTAL_SEATS) > 0.5 ? 'bg-yellow-400' : 'bg-green-500'
+                  }`}
+                style={{ width: `${Math.min((occupiedCount / TOTAL_SEATS) * 100, 100)}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-right">※30秒ごとに自動更新</p>
+          </div>
+
+          {/* QRコード表示エリア */}
           <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 mb-8 flex flex-col items-center w-full">
             {qrToken ? (
               <QRCodeSVG value={qrToken} size={200} level={"H"} />
