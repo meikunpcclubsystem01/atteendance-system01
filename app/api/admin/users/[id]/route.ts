@@ -26,7 +26,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const data: Prisma.UserUpdateInput = {};
     if (validFrom !== undefined) data.validFrom = validFrom ? new Date(validFrom) : null;
     if (validUntil !== undefined) data.validUntil = validUntil ? new Date(validUntil) : null;
-    if (studentId !== undefined) data.studentId = studentId === "" ? null : studentId;
+
+    if (studentId !== undefined) {
+      if (typeof studentId === "string" && studentId.length > 50) {
+        return NextResponse.json({ error: "学籍番号は50文字以内で入力してください" }, { status: 400 });
+      }
+      data.studentId = studentId === "" ? null : studentId;
+    }
 
     const user = await prisma.user.update({
       where: { id },

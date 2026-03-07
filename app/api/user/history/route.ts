@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 // 合計滞在時間を「〇時間〇分」フォーマットにするヘルパー
 function formatDuration(ms: number) {
     if (ms < 0) return "0分";

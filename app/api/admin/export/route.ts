@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     const session = await getServerSession(authOptions);
 
@@ -53,13 +55,17 @@ export async function GET() {
         // BOMとCSVの中身を結合
         const finalBuffer = Buffer.concat([bom, csvBuffer]);
 
+        // JST基準での今日の日付文字列を取得 (YYYY-MM-DD)
+        const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const yyyyMmDd = `${nowJST.getFullYear()}-${String(nowJST.getMonth() + 1).padStart(2, '0')}-${String(nowJST.getDate()).padStart(2, '0')}`;
+
         // BlobやBufferを使わずともNode.js Responseでは文字として送れる
         // より確実にするためのHeaders設定
         return new NextResponse(finalBuffer, {
             status: 200,
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": `attachment; filename="attendance_logs_${new Date().toISOString().split('T')[0]}.csv"`,
+                "Content-Disposition": `attachment; filename="attendance_logs_${yyyyMmDd}.csv"`,
             },
         });
 
