@@ -12,13 +12,11 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const path = req.nextUrl.pathname;
 
-        // 管理者権限が必要なURLリスト
         const isAdminRoute =
           path.startsWith("/admin") ||
           path.startsWith("/scanner") ||
           path.startsWith("/api/admin") ||
-          path.startsWith("/api/checkin") ||
-          path.startsWith("/api/seats");
+          path.startsWith("/api/checkin");
 
         // アクセス先が管理者用URLの場合
         if (isAdminRoute) {
