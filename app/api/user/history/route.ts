@@ -105,7 +105,58 @@ export async function GET() {
             }
         }
 
-        return NextResponse.json({ history });
+        // --- サマリー集計 ---
+        // 今月のログを取得（サマリー計算用）
+        const nowJst = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+        const monthStart = new Date(nowJst.getFullYear(), nowJst.getMonth(), 1);
+        // 今週の月曜日を計算
+        const dayOfWeek = nowJst.getDay();
+        const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const weekStart = new Date(nowJst);
+        weekStart.setDate(nowJst.getDate() - mondayOffset);
+        weekStart.setHours(0, 0, 0, 0);
+
+        const monthlyLogs = await prisma.attendanceLog.findMany({
+            where: { userId, timestamp: { gte: monthStart } },
+            orderBy: { timestamp: "asc" },
+        });
+
+        let monthlyTotalMinutes = 0;
+        const monthlyDaysSet = new Set<string>();
+        const weeklyDaysSet = new Set<string>();
+
+        for (let i = 0; i < monthlyLogs.length; i++) {
+            if (monthlyLogs[i].action === "IN") {
+                const inTime = monthlyLogs[i].timestamp;
+                const dateKey = formatDate(inTime);
+                monthlyDaysSet.add(dateKey);
+
+                if (inTime >= weekStart) {
+                    weeklyDaysSet.add(dateKey);
+                }
+
+                // 対応するOUTを探す
+                if (i + 1 < monthlyLogs.length && monthlyLogs[i + 1].action === "OUT") {
+                    const outTime = monthlyLogs[i + 1].timestamp;
+                    monthlyTotalMinutes += Math.floor((outTime.getTime() - inTime.getTime()) / 60000);
+                    i++;
+                }
+            }
+        }
+
+        const summaryHours = Math.floor(monthlyTotalMinutes / 60);
+        const summaryMins = monthlyTotalMinutes % 60;
+
+        return NextResponse.json({
+            history,
+            summary: {
+                monthlyTotal: summaryHours > 0 ? `${summaryHours}時間${summaryMins}分` : `${summaryMins}分`,
+                monthlyTotalMinutes,
+                monthlyDays: monthlyDaysSet.size,
+                weeklyDays: weeklyDaysSet.size,
+                monthLabel: `${nowJst.getMonth() + 1}月`,
+            }
+        });
     } catch (error) {
         console.error("Failed to fetch user history:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

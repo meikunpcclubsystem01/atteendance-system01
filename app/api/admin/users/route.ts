@@ -18,6 +18,15 @@ export async function GET() {
 
   try {
     const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        email: true,
+        parentEmail: true,
+        validFrom: true,
+        validUntil: true,
+      },
       orderBy: { studentId: "asc" }
     });
     return NextResponse.json(users);

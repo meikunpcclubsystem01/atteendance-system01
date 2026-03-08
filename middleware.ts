@@ -15,8 +15,7 @@ export default withAuth(
         const isAdminRoute =
           path.startsWith("/admin") ||
           path.startsWith("/scanner") ||
-          path.startsWith("/api/admin") ||
-          path.startsWith("/api/checkin");
+          path.startsWith("/api/admin");
 
         // アクセス先が管理者用URLの場合
         if (isAdminRoute) {
@@ -44,7 +43,5 @@ export const config = {
     "/admin/:path*",
     "/scanner/:path*",
     "/api/admin/:path*",
-    "/api/checkin/:path*",
-    "/api/seats/:path*"
   ],
 };

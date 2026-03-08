@@ -17,7 +17,13 @@ interface SessionLog {
 }
 
 export default function AdminHistoryPage() {
-  const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const getJSTDateString = () => {
+    const d = new Date();
+    const jstDate = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+    return jstDate.toISOString().split("T")[0];
+  };
+
+  const [date, setDate] = useState<string>(getJSTDateString());
 
   const { data: logs, error } = useSWR<SessionLog[]>(`/api/admin/history?date=${date}`, fetcher);
 
@@ -43,7 +49,7 @@ export default function AdminHistoryPage() {
 
     // ヘッダー
     const headers = ["学籍番号", "氏名", "入室時間", "退出時間", "滞在時間", "備考"];
-    
+
     // データ行の作成
     const rows = logs.map(log => [
       log.studentId || "",
@@ -56,14 +62,24 @@ export default function AdminHistoryPage() {
 
     // CSV文字列の生成（BOMをつけてExcelでの文字化けを防ぐ）
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+
+    // CSV Injection対策：先頭の危険文字をエスケープ
+    const escapeCsv = (str: string) => {
+      let escaped = str.replace(/"/g, '""');
+      if (/^[=\+\-@]/.test(escaped)) {
+        escaped = "'" + escaped;
+      }
+      return `"${escaped}"`;
+    };
+
     const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.map(field => `"${String(field).replace(/"/g, '""')}"`).join(","))
+      headers.map(h => escapeCsv(h)).join(","),
+      ...rows.map(r => r.map(field => escapeCsv(String(field))).join(","))
     ].join("\n");
 
     const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    
+
     // ダウンロードトリガー
     const link = document.createElement("a");
     link.href = url;
@@ -99,11 +115,10 @@ export default function AdminHistoryPage() {
           <button
             onClick={handleDownloadCsv}
             disabled={!logs || logs.length === 0}
-            className={`px-4 py-2 rounded text-white font-bold transition ${
-              !logs || logs.length === 0 
-                ? "bg-gray-400 cursor-not-allowed" 
-                : "bg-green-600 hover:bg-green-700"
-            }`}
+            className={`px-4 py-2 rounded text-white font-bold transition ${!logs || logs.length === 0
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700"
+              }`}
           >
             ↓ CSVダウンロード
           </button>

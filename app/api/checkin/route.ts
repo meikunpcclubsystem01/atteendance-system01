@@ -17,7 +17,10 @@ export async function POST(req: Request) {
     }
 
     // トークン検証
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string; purpose?: string };
+    if (decoded.purpose !== "qr") {
+      return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
+    }
     const userId = decoded.userId;
 
     // ユーザー取得
@@ -62,11 +65,27 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "入室時は座席を指定してください" }, { status: 400 });
       }
 
-      // 競合チェック：リクエストされた座席が、すでに誰かに使われていないかデータベースを直接確認する
+      // 座席名のバリデーション：DBレイアウトに存在する座席かチェック
+      const DEFAULT_SEATS = ["1番", "2番", "3番", "4番", "5番", "6番", "7番", "8番", "9番", "10番", "11番", "12番", "13番", "14番", "15番", "16番", "17番", "18番", "19番", "20番", "21番", "22番", "23番", "24番", "25番", "26番", "27番", "28番", "29番", "30番"];
+      let validSeats = DEFAULT_SEATS;
+      try {
+        const setting = await prisma.systemSetting.findUnique({ where: { key: "seat_layout" } });
+        if (setting) {
+          const layout = JSON.parse(setting.value) as (string | null)[][];
+          validSeats = layout.flat().filter((s): s is string => s !== null);
+        }
+      } catch { /* デフォルトを使用 */ }
+
+      if (!validSeats.includes(seat)) {
+        return NextResponse.json({ error: "無効な座席名です" }, { status: 400 });
+      }
+
+      // 競合チェック：リクエストされた座席が、すでに「自分以外の誰か」に使われていないか確認する
       const existingUserInSeat = await prisma.user.findFirst({
         where: {
           currentStatus: "IN",
-          currentSeat: seat
+          currentSeat: seat,
+          id: { not: userId } // ←自分自身の二重スキャンの場合はエラーにしない
         }
       });
 
@@ -100,13 +119,17 @@ export async function POST(req: Request) {
         user.parentEmail,
         user.name || "生徒",
         newStatus as "IN" | "OUT",
-        new Date()
+        new Date(),
+        userId
       ).catch(err => console.error("Email error inside API:", err));
     }
 
     return NextResponse.json({
       success: true,
-      user: result[0],
+      user: {
+        name: result[0].name,
+        currentStatus: result[0].currentStatus,
+      },
       action: newStatus,
     });
 

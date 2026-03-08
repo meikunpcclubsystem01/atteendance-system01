@@ -23,6 +23,7 @@ export default function AdminPage() {
   });
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const handleForceLogout = async (userId: string) => {
     if (!window.confirm("この生徒を強制退出させますか？")) return;
@@ -81,18 +82,20 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold">在室者リスト (管理画面)</h1>
           <div className="flex space-x-4 items-center">
             <Link href="/admin/users" className="text-indigo-600 hover:underline font-bold">
-              ユーザー管理（有効期限設定）
+              🔐 ユーザー管理
             </Link>
             <Link href="/admin/history" className="text-indigo-600 hover:underline font-bold">
               日別履歴表示
             </Link>
-            <a
-              href="/api/admin/export"
-              download
-              className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-4 py-2 rounded shadow transition"
-            >
-              CSVダウンロード
-            </a>
+            <Link href="/admin/stats" className="text-indigo-600 hover:underline font-bold">
+              📊 利用統計
+            </Link>
+            <Link href="/admin/audit-log" className="text-indigo-600 hover:underline font-bold">
+              📋 操作ログ
+            </Link>
+            <Link href="/admin/seat-layout" className="text-indigo-600 hover:underline font-bold">
+              🪑 座席設定
+            </Link>
             <span className="bg-green-100 text-green-800 text-lg font-bold px-4 py-2 rounded-full">
               現在 {users.length} 名
             </span>
@@ -126,7 +129,7 @@ export default function AdminPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     現在、在室している生徒はいません。
                   </td>
                 </tr>
@@ -171,6 +174,36 @@ export default function AdminPage() {
             </tbody>
           </table>
         </div>
+
+        {/* 一括強制退出ボタン */}
+        {users.length > 0 && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={async () => {
+                if (!window.confirm(`現在在室中の${users.length}名全員を強制退出させますか？`)) return;
+                setBulkLoading(true);
+                try {
+                  const res = await fetch("/api/admin/force-logout-all", { method: "POST" });
+                  if (res.ok) {
+                    const data = await res.json();
+                    alert(data.message);
+                    mutate();
+                  } else {
+                    alert("一括退出に失敗しました");
+                  }
+                } catch {
+                  alert("通信エラーが発生しました");
+                } finally {
+                  setBulkLoading(false);
+                }
+              }}
+              disabled={bulkLoading}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded transition disabled:bg-gray-400"
+            >
+              {bulkLoading ? "処理中..." : `⚠ 全員一括退出 (${users.length}名)`}
+            </button>
+          </div>
+        )}
 
         <div className="mt-8 text-center">
           <Link href="/" className="text-blue-500 underline hover:text-blue-700">

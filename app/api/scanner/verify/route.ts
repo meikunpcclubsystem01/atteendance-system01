@@ -16,7 +16,10 @@ export async function POST(req: Request) {
         }
 
         // トークン検証
-        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string };
+        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string; purpose?: string };
+        if (decoded.purpose !== "qr") {
+            return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
+        }
         const userId = decoded.userId;
 
         // ユーザー取得

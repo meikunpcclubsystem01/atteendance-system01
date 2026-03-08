@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { recordAdminLog } from "@/lib/adminLog";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -43,7 +44,15 @@ export async function POST(req: Request) {
       })
     ]);
 
-    return NextResponse.json({ success: true, user: result[0] });
+    await recordAdminLog(session.user.email, "Force Logout", `User ${result[0].name} (ID: ${userId}) was force logged out.`);
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        name: result[0].name,
+        currentStatus: result[0].currentStatus,
+      },
+    });
   } catch (error) {
     console.error("Force logout error:", error);
     return NextResponse.json({ error: "Failed to force logout" }, { status: 500 });

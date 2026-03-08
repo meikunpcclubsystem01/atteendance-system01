@@ -27,7 +27,6 @@ export async function GET() {
         id: true,
         studentId: true,
         name: true,
-        email: true,
         currentSeat: true,
         logs: {
           select: {

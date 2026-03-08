@@ -23,10 +23,11 @@ export async function GET() {
     userId: session.user.id,
     studentId: session.user.studentId,
     timestamp: Date.now(),
+    purpose: "qr",
   };
 
-  // 30秒だけ有効なトークンを生成
-  const token = jwt.sign(payload, process.env.NEXTAUTH_SECRET, { expiresIn: "30s" });
+  // フロントエンドは30秒ごとに更新するが、通信遅延を考慮してバックエンドの有効期間は60秒（30秒の猶予）を持たせる
+  const token = jwt.sign(payload, process.env.NEXTAUTH_SECRET, { expiresIn: "60s" });
 
   return NextResponse.json({ token });
 }

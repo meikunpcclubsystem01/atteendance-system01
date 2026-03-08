@@ -52,8 +52,8 @@ export const authOptions: NextAuthOptions = {
           session.user.studentId = dbUser.studentId;
           session.user.isRegistered = dbUser.isRegistered;
           session.user.currentStatus = dbUser.currentStatus;
-          session.user.validFrom = dbUser.validFrom;
-          session.user.validUntil = dbUser.validUntil;
+          session.user.validFrom = dbUser.validFrom ? dbUser.validFrom.toISOString() : null;
+          session.user.validUntil = dbUser.validUntil ? dbUser.validUntil.toISOString() : null;
 
           // 管理者判定
           const adminEmails = process.env.ADMIN_EMAILS?.split(",").map(e => e.trim()).filter(Boolean) || [];

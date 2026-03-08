@@ -23,8 +23,9 @@ export async function GET(req: Request) {
     // dateParamがなければ今日のJST日付文字列(YYYY-MM-DD)を取得
     let targetDateStr = dateParam;
     if (!targetDateStr) {
-      const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-      targetDateStr = `${nowJST.getFullYear()}-${String(nowJST.getMonth() + 1).padStart(2, '0')}-${String(nowJST.getDate()).padStart(2, '0')}`;
+      const now = new Date();
+      const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      targetDateStr = jstDate.toISOString().split('T')[0];
     }
 
     // YYYY-MM-DD 文字列に JST のオフセットを付けて Date オブジェクト化する
@@ -110,11 +111,19 @@ export async function GET(req: Request) {
     });
 
     // フラットなリストに変換（1セッション1行）
-    const resultList: (SessionData & { userId: string, name: string, studentId: string })[] = [];
+    interface OmitSessionDataResponse {
+      name: string;
+      studentId: string;
+      inTime: Date | null;
+      outTime: Date | null;
+      durationMs: number;
+      remarks: string | null;
+    }
+
+    const resultList: OmitSessionDataResponse[] = [];
     Object.values(userGroups).forEach(group => {
       group.sessions.forEach((s) => {
         resultList.push({
-          userId: group.userId,
           name: group.name,
           studentId: group.studentId,
           inTime: s.inTime,

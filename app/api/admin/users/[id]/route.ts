@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { recordAdminLog } from "@/lib/adminLog";
 
 // 管理者権限チェック用のユーティリティ関数
 async function isAdmin() {
@@ -21,17 +22,27 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   try {
     const { id } = await params;
-    const { validFrom, validUntil, studentId } = await req.json();
+    const { validFrom, validUntil, studentId, parentEmail } = await req.json();
 
     const data: Prisma.UserUpdateInput = {};
-    if (validFrom !== undefined) data.validFrom = validFrom ? new Date(validFrom) : null;
-    if (validUntil !== undefined) data.validUntil = validUntil ? new Date(validUntil) : null;
+    if (validFrom !== undefined) data.validFrom = validFrom ? new Date(`${validFrom}T00:00:00+09:00`) : null;
+    if (validUntil !== undefined) data.validUntil = validUntil ? new Date(`${validUntil}T23:59:59+09:00`) : null;
 
     if (studentId !== undefined) {
       if (typeof studentId === "string" && studentId.length > 50) {
         return NextResponse.json({ error: "学籍番号は50文字以内で入力してください" }, { status: 400 });
       }
       data.studentId = studentId === "" ? null : studentId;
+    }
+
+    if (parentEmail !== undefined) {
+      if (parentEmail !== "" && typeof parentEmail === "string") {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (parentEmail.length > 255 || !emailRegex.test(parentEmail)) {
+          return NextResponse.json({ error: "不正なメールアドレス形式です" }, { status: 400 });
+        }
+      }
+      data.parentEmail = parentEmail === "" ? null : parentEmail;
     }
 
     const user = await prisma.user.update({
@@ -67,6 +78,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await prisma.user.delete({
       where: { id },
     });
+
+    if (session?.user?.email) {
+      await recordAdminLog(
+        session.user.email,
+        "DELETE_USER",
+        `ユーザー削除: ${targetUser?.name || "不明"} (${targetUser?.studentId || id})`
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

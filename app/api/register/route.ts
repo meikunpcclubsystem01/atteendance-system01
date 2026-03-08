@@ -23,6 +23,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "不正なメールアドレス形式、または文字数が多すぎます" }, { status: 400 });
   }
 
+  // 学校ドメインのブロック（生徒が自分のメールを保護者メールとして登録するのを防ぐ）
+  const allowedDomain = process.env.ALLOWED_DOMAIN || "niigata-meikun.ed.jp";
+  if (parentEmail.endsWith(`@${allowedDomain}`)) {
+    return NextResponse.json({ error: "学校のメールアドレスは保護者メールとして登録できません" }, { status: 400 });
+  }
+
   // データベースを更新して、isRegistered (登録済み) を true にする
   await prisma.user.update({
     where: { id: session.user.id },

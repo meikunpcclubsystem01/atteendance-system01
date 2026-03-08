@@ -14,7 +14,7 @@ export default function ScannerPage() {
   const [statusMessage, setStatusMessage] = useState<string>("QRスキャン待機中...");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: seatData, mutate: mutateSeats } = useSWR<{ occupiedSeats: string[] }>("/api/seats", fetcher, {
+  const { data: seatData, mutate: mutateSeats } = useSWR<{ occupiedSeats: string[]; layout?: (string | null)[][] }>("/api/seats", fetcher, {
     refreshInterval: 5000,
   });
 
@@ -152,7 +152,10 @@ export default function ScannerPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-4xl font-bold mb-8">QRコード読み取り機</h1>
+      <div className="flex items-center gap-4 mb-8">
+        <h1 className="text-4xl font-bold">QRコード読み取り機</h1>
+        <a href="/scanner/camera" className="text-blue-400 hover:underline text-sm">📷 カメラモード</a>
+      </div>
 
       <div className="mb-4 text-center">
         {scannerMode === "IDLE" ? (
@@ -175,9 +178,10 @@ export default function ScannerPage() {
         {/* ビジュアル座席マップコンポーネント */}
         <div className={scannerMode === "IDLE" ? "opacity-60 pointer-events-none" : ""}>
           <SeatMap
-            selectedSeat={""} // 座席選択状態の保持は不要になった（タップ即送信）
+            selectedSeat={""}
             onSelectSeat={handleSeatClick}
             occupiedSeats={seatData?.occupiedSeats || []}
+            layout={seatData?.layout}
           />
         </div>
       </div>

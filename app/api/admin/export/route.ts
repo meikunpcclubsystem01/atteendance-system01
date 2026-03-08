@@ -19,9 +19,14 @@ export async function GET() {
     }
 
     try {
-        // 全てのAttendanceLogを（必要であれば期間指定なども可能）取得する
-        // 今回は全件を一律エクスポート
+        // 過去1年分のデータに制限（メモリ保護）
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
         const logs = await prisma.attendanceLog.findMany({
+            where: {
+                timestamp: { gte: oneYearAgo },
+            },
             include: {
                 user: { select: { name: true, studentId: true } },
             },
@@ -63,8 +68,9 @@ export async function GET() {
         const finalBuffer = Buffer.concat([bom, csvBuffer]);
 
         // JST基準での今日の日付文字列を取得 (YYYY-MM-DD)
-        const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-        const yyyyMmDd = `${nowJST.getFullYear()}-${String(nowJST.getMonth() + 1).padStart(2, '0')}-${String(nowJST.getDate()).padStart(2, '0')}`;
+        const now = new Date();
+        const jstDateForFile = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+        const yyyyMmDd = jstDateForFile.toISOString().split('T')[0];
 
         // BlobやBufferを使わずともNode.js Responseでは文字として送れる
         // より確実にするためのHeaders設定
