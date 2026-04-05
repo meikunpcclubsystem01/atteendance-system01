@@ -1,8 +1,13 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-export default withAuth(
-  function middleware(_req) {
+/**
+ * Next.js 16 Proxy Middleware
+ * 旧 middleware.ts からの移行。
+ * 命名規約として関数名を proxy に変更し、named export する必要があります。
+ */
+export const proxy = withAuth(
+  function proxy(_req) {
     // 認証済みのユーザー情報（token）はコールバック内で検証されるため
     // ここは基本的に通過させるだけでOKです
     return NextResponse.next();
