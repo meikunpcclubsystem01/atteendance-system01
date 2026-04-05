@@ -105,7 +105,8 @@ erDiagram
 
 ### 3.2 認証・認可 (NextAuth.js)
 - **ドメインフィルタ**: `niigata-meikun.ed.jp` 以外のメールアドレスはログイン段階で `signIn` コールバックにより拒否。
-- **セッション拡張**: `session` コールバック内で、データベースを検索し、`isAdmin`, `studentId`, `currentStatus`, `validUntil` をセッションオブジェクトに注入。これによりフロントエンドでの権限チェックを高速化。
+- **セッション拡張**: `session` コールバック内で、データベースを検索し、`studentId`, `currentStatus`, `validUntil` をセッションオブジェクトに注入。これによりフロントエンドでの権限チェックを高速化。
+- **認可ゲートウェイ (Proxy)**: Next.js 16 の `proxy.ts` 規約を利用し、サーバーサイドで管理者権限（`/admin`, `/scanner` 等）を検証。未認証時は自動的にログイン画面へリダイレクトします。
 
 ### 3.3 レート制限 (Rate Limiting)
 - **仕組み**: `lib/rateLimit.ts` にて、IPアドレスまたはユーザーIDをキーとした「試行回数 / ウィンドウ時間」のペアをインメモリ Map で管理。
@@ -158,5 +159,6 @@ sudo docker compose logs -f app
 ---
 
 > **将来の拡張へのヒント**
+> - **Proxy の活用**: ネットワーク境界でのリクエスト処理（リダイレクト、ヘッダー付与等）は `proxy.ts` で一括管理されています。
 > - **統計機能**: `AttendanceLog` を `action="IN"` と `OUT` でペアリングし、総学習時間を日次/週次で集計可能です。
 > - **複数部屋対応**: `SystemSetting` を拡張し、部屋ごとに異なる `seat_layout` を保持できるよう設計の余地を残しています。
