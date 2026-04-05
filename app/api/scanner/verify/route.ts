@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     try {
         const { token } = await req.json();
 
-        if (!token) {
+        if (!token || typeof token !== "string" || token.length > 2048) {
             return NextResponse.json({ error: "No token provided" }, { status: 400 });
         }
 
@@ -21,6 +21,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
         }
         const userId = decoded.userId;
+
+        // セキュリティ: トークンから取得したuserIdの型・形式を検証
+        if (!userId || typeof userId !== "string" || userId.length > 100) {
+            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
+        }
 
         // ユーザー取得
         const user = await prisma.user.findUnique({

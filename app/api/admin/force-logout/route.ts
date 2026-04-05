@@ -18,7 +18,8 @@ export async function POST(req: Request) {
   try {
     const { userId } = await req.json();
 
-    if (!userId) {
+    // セキュリティ: リクエストボディのuserIdの型・形式を厳格に検証
+    if (!userId || typeof userId !== "string" || userId.length > 100) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 

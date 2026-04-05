@@ -7,7 +7,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const token = searchParams.get("token");
 
-        if (!token) {
+        if (!token || typeof token !== "string" || token.length > 2048) {
             return NextResponse.json({ error: "Missing token" }, { status: 400 });
         }
 
@@ -27,8 +27,18 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
         }
 
-        if (!decoded.userId || !decoded.newParentEmail) {
+        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
             return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
+        }
+
+        if (!decoded.newParentEmail || typeof decoded.newParentEmail !== "string") {
+            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
+        }
+
+        // セキュリティ: トークン内のメールアドレス形式を検証
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (decoded.newParentEmail.length > 255 || !emailRegex.test(decoded.newParentEmail)) {
+            return NextResponse.json({ error: "Invalid email in token" }, { status: 400 });
         }
 
         // データベースを更新

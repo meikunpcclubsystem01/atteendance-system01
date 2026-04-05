@@ -9,7 +9,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const token = searchParams.get("token");
 
-        if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
+        if (!token || typeof token !== "string" || token.length > 2048) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
         if (!process.env.NEXTAUTH_SECRET) {
             return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -25,6 +25,11 @@ export async function GET(req: Request) {
 
         if ((decoded as TokenPayload & { purpose?: string }).purpose !== "permission_request") {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
+        }
+
+        // セキュリティ: トークンから取得したuserIdの型・形式を検証
+        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
+            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
         }
 
         const user = await prisma.user.findUnique({
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
     try {
         const { token, validFrom, validUntil } = await req.json();
 
-        if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
+        if (!token || typeof token !== "string" || token.length > 2048) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
         if (!process.env.NEXTAUTH_SECRET) {
             return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -69,6 +74,11 @@ export async function POST(req: Request) {
 
         if (decoded.purpose !== "permission_request") {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
+        }
+
+        // セキュリティ: トークンから取得したuserIdの型・形式を検証
+        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
+            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
         }
 
         const data: { validFrom?: Date | null; validUntil?: Date | null } = {};

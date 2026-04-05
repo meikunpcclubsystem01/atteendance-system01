@@ -22,6 +22,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   try {
     const { id } = await params;
+
+    // セキュリティ: URLパラメータのidの型・形式を検証
+    if (!id || typeof id !== "string" || id.length > 100) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+    }
+
     const { validFrom, validUntil, studentId, parentEmail } = await req.json();
 
     const data: Prisma.UserUpdateInput = {};
@@ -65,6 +71,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { id } = await params;
+
+    // セキュリティ: URLパラメータのidの型・形式を検証
+    if (!id || typeof id !== "string" || id.length > 100) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+    }
 
     // 自爆（自分自身の削除）防止機能
     const session = await getServerSession(authOptions);

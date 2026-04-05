@@ -40,7 +40,7 @@ export const sendNotificationEmail = async (
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 メール送信成功: ${toEmail}`);
+    console.log(`📧 メール送信成功: ${toEmail.replace(/[\r\n]/g, "")}`);
   } catch (error) {
     console.error("📧 メール送信失敗:", error);
   }
@@ -66,7 +66,7 @@ export const sendPermissionRequestEmail = async (
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 許可申請メール送信成功: ${toEmail}`);
+    console.log(`📧 許可申請メール送信成功: ${toEmail.replace(/[\r\n]/g, "")}`);
   } catch (error) {
     console.error("📧 許可申請メール送信失敗:", error);
     throw error;
@@ -87,7 +87,8 @@ export const sendParentEmailChangeConfirmation = async (
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 メール変更確認メール送信成功: ${toEmail}`);
+    const safeToEmail = toEmail.replace(/[\r\n]/g, "");
+    console.log(`📧 メール変更確認メール送信成功: ${safeToEmail}`);
   } catch (error) {
     console.error("📧 メール変更確認メール送信失敗:", error);
     throw error;
