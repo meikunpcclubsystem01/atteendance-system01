@@ -9,7 +9,7 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url);
         const token = searchParams.get("token");
 
-        if (!token) {
+        if (!token || typeof token !== "string" || token.length > 2048) {
             return NextResponse.json({ error: "Missing token" }, { status: 400 });
         }
 
@@ -21,6 +21,11 @@ export async function GET(req: Request) {
 
         if (decoded.purpose !== "parent_history") {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
+        }
+
+        // セキュリティ: トークンから取得したuserIdの型・形式を検証
+        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
+            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
         }
 
         const user = await prisma.user.findUnique({
