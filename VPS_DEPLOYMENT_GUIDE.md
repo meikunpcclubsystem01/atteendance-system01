@@ -3,6 +3,12 @@
 サーバーに詳しくない方でも、順番通りに進めれば「既存のWordPressを壊さずに」「サブドメインで出欠システムを動かす」ことができるマニュアルです。
 現在、ソースコードは新しいGitHubリポジトリ（`atteendance-system01`）へ移行済みですので、その状態からスタートします。ゆっくり一つずつ進めていきましょう！
 
+> **本番環境の早見表**
+> - 公開URL: `https://entry.meikun-pc.club`
+> - VPS上の実体: `/var/www/attendance-system`
+> - ホームから開く入口: `~/attendance-system`
+> - Nginx設定: `/etc/nginx/sites-available/attendance`
+
 ---
 
 ## ステップ1：お名前.com等で「サブドメイン」を作る
@@ -46,6 +52,14 @@
    git clone https://github.com/meikunpcclubsystem01/atteendance-system01.git .
    ```
 
+4. **ホームから見える入口を作ります**
+   `/var/www` はホームディレクトリの外にあるため、通常の一覧やSFTPでは見つけにくい場所です。実体を移動せず、ホーム直下から同じフォルダを開けるようにします。
+   ```bash
+   ln -s /var/www/attendance-system ~/attendance-system
+   cd ~/attendance-system
+   ```
+   以後は `/var/www/attendance-system` の代わりに `~/attendance-system` を使えます。`File exists` と表示された場合は、入口がすでに作成済みです。
+
 ---
 
 ## ステップ3：秘密のパスワードファイル（`.env`）を作る
@@ -73,13 +87,15 @@
    NEXTAUTH_SECRET="ここは何か長くて適当な英数字の羅列にしてね"
 
    # --- メール・管理者設定 ---
-   EMAIL_USER="meikunpcclubsystem01@gmail.com"
-   EMAIL_PASS="cpxjbbdvutgfvcdt"
+   EMAIL_USER="送信用のGmailアドレス"
+   EMAIL_PASS="新しく発行したGmailアプリパスワード"
    ALLOWED_DOMAIN="niigata-meikun.ed.jp"
    NEXT_PUBLIC_ALLOWED_DOMAIN="niigata-meikun.ed.jp"
    ADMIN_EMAILS="meikunpcclubsystem01@gmail.com"
    ADMIN_PIN="あなたの管理用PIN"
+   CRON_SECRET="十分に長いランダム文字列"
    ```
+   認証情報の実値は `.env` だけに保存し、手順書やGitへ記録しないでください。
 3. **保存して閉じます**
    キーボードの `Ctrl` キーを押しながら `O`（オー）を押してEnter。
    次に `Ctrl` キーを押しながら `X` を押して画面を閉じます。
@@ -167,7 +183,7 @@ WordPressを壊さないように、慎重に追加します。
 1. **VPSにログインしてフォルダに移動**
    ```bash
    ssh ubuntu@あなたのVPSのIPアドレス
-   cd /var/www/attendance-system
+   cd ~/attendance-system
    ```
 
 2. **GitHubから最新のコードを引っ張ってくる（Pull）**

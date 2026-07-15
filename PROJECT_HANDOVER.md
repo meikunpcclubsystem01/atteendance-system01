@@ -109,16 +109,12 @@ Prisma Schema (`schema.prisma`) に基づく、各フィールドの役割と設
 ## 6. 運用・保守・トラブルシューティング (Expert Level)
 
 ### 6.1 Prisma による DB メンテナンス
-- **スキーマ変更**: `schema.prisma` を書き換えた後、以下のコマンドを実行します。
-  ```bash
-  sudo docker compose exec app npx prisma db push
-  ```
-  *※ `db push` は本番環境での迅速な同期に向いていますが、大規模な破壊的変更時は `migrate dev` (マイグレーション) の利用を検討してください。*
+- **スキーマ変更**: リリースごとに指定されたマイグレーションを、バックアップ取得後のメンテナンス時間に適用します。現在のセキュリティ更新は `prisma/manual-migrations/README.md` と `security-hardening.sql` が正本です。本番環境で `prisma db push` を直接実行しないでください。
 
 ### 6.2 Docker コンテナの健康診断
 - **アプリが立ち上がらないときは**:
   ```bash
-  sudo docker compose logs -f app
+  sudo docker compose logs -f web
   ```
   - `ENOTFOUND`: データベースの URL または Gmail 接続設定が間違っています。
   - `Port 3000 already in use`: 他のプロセスがポートを占有しています。
@@ -160,7 +156,7 @@ Prisma Schema (`schema.prisma`) に基づく、各フィールドの役割と設
 - **原因**: 画面上の誤字脱字や、配置などの軽微なプログラム変更。
 - **手順**:
     1. SSH で本番サーバーにログイン。
-    2. `cd /var/www/attendance-system` でプロジェクトフォルダへ。
+    2. `cd ~/attendance-system` でプロジェクトフォルダへ（実体は `/var/www/attendance-system`）。
     3. `git pull origin main` で最新コードを GitHub から取得。
     4. `sudo docker compose up -d --build` で再構築して起動。
 - **予防**: 常に `main` ブランチを最新に保ち、自分以外のメンバーが勝手に書き換えていないか GitHub の履歴を確認しましょう。
@@ -169,7 +165,7 @@ Prisma Schema (`schema.prisma`) に基づく、各フィールドの役割と設
 - **原因**: `prisma/schema.prisma` (データベースの設計図) を変更した。
 - **手順**:
     1. 上記【ケース A】の手順 1〜3 を実行。
-    2. `sudo docker compose exec app npx prisma db push` を実行（DBの形を更新）。
+    2. 対象リリースのマイグレーション手順を確認してDBを更新。現在のセキュリティ更新では `prisma/manual-migrations/README.md` に従う。
     3. `sudo docker compose up -d --build` で再起動。
 - **予防**: DBの変更はやり直しが難しいため、実行前に Supabase のダッシュボードでバックアップを推奨します。
 
@@ -177,7 +173,7 @@ Prisma Schema (`schema.prisma`) に基づく、各フィールドの役割と設
 - **原因**: 設定ファイル内の Gmail パスワードや Google クライアント ID などの更新。
 - **手順**:
     1. `nano .env` でファイルを編集し、値を書き換えて保存 (`Ctrl+O` → `Enter` → `Ctrl+X`)。
-    2. `sudo docker compose restart app` でアプリのみ再起動。
+    2. `sudo docker compose restart web` でアプリのみ再起動。
 - **予防**: `.env` を誤って消さないよう、バックアップ版 (`.env.backup`) を作っておくと安全です。
 
 ### 【ケース D】原因不明の動作不良 (フリーズ等)
@@ -216,7 +212,7 @@ Prisma Schema (`schema.prisma`) に基づく、各フィールドの役割と設
 - **手順**:
     1. `df -h` でディスク容量を確認。
     2. `sudo docker system prune -a` で不要なキャッシュやイメージを一括削除。
-    3. `sudo docker compose logs -f app` でエラーの洪水が起きていないか確認。
+    3. `sudo docker compose logs -f web` でエラーの洪水が起きていないか確認。
 - **予防**: 定期的に `docker system prune` を手動、または自動で実行する習慣をつけましょう。
 
 ### 【ケース I】生徒の QR コードが常に「期限切れ」になる
