@@ -14,7 +14,8 @@ export const sendNotificationEmail = async (
   studentName: string,
   action: "IN" | "OUT",
   time: Date,
-  userId: string
+  userId: string,
+  guardianVersion: number,
 ) => {
   const actionText = action === "IN" ? "入室" : "退室";
   const timeString = time.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
@@ -23,7 +24,7 @@ export const sendNotificationEmail = async (
   let historyLinkText = "";
   if (process.env.NEXTAUTH_SECRET && process.env.NEXTAUTH_URL) {
     const historyToken = jwt.sign(
-      { userId, purpose: "parent_history" },
+      { userId, guardianVersion, purpose: "parent_history" },
       process.env.NEXTAUTH_SECRET,
       { expiresIn: "30d" }
     );
@@ -82,7 +83,7 @@ export const sendParentEmailChangeConfirmation = async (
     from: `"入退室システム" <${process.env.EMAIL_USER}>`,
     to: toEmail,
     subject: `【確認】${studentName}さんの保護者メールアドレス変更`,
-    text: `入退室システムからのお知らせ\n\n${studentName}さんより、保護者のメールアドレスをこのアドレスに変更するリクエストがありました。\n\nこの変更に同意する場合は、以下のリンクをクリックしてください。\n\n▼ メールアドレス変更を確認する\n${confirmLink}\n\n※このリンクの有効期限は7日間です。\n※心当たりがない場合は、このメールを無視してください。変更は行われません。`,
+    text: `入退室システムからのお知らせ\n\n${studentName}さんより、保護者のメールアドレスをこのアドレスに変更するリクエストがありました。\n\nこの変更に同意する場合は、以下のリンクをクリックしてください。\n\n▼ メールアドレス変更を確認する\n${confirmLink}\n\n※このリンクの有効期限は7日間です。\n※このリンクは1回限り有効です。\n※心当たりがない場合は、このメールを無視してください。変更は行われません。`,
   };
 
   try {
@@ -92,5 +93,50 @@ export const sendParentEmailChangeConfirmation = async (
   } catch (error) {
     console.error("📧 メール変更確認メール送信失敗:", error);
     throw error;
+  }
+};
+
+// 保護者メール変更用PINコード送信
+export const sendEmailChangePinEmail = async (
+  toEmail: string,
+  studentName: string,
+  pin: string
+) => {
+  const mailOptions = {
+    from: `"入退室システム" <${process.env.EMAIL_USER}>`,
+    to: toEmail,
+    subject: `【確認コード】${studentName}さんのメールアドレス変更`,
+    text: `${studentName}さんの保護者様\n\nお世話になっております。\n${studentName}さんより、保護者のメールアドレスを変更するリクエストがありました。\n\n以下の確認コードを${studentName}さんに伝え、画面で入力してもらってください。\n\n━━━━━━━━━━━━━━━━━\n確認コード: ${pin}\n━━━━━━━━━━━━━━━━━\n\n※この確認コードの有効期限は10分間です。\n※心当たりがない場合は、このメールを無視してください。\n※このコードを他人に教えないでください。`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    const safeToEmail = toEmail.replace(/[\r\n]/g, "");
+    console.log(`📧 メール変更PINコード送信成功: ${safeToEmail}`);
+  } catch (error) {
+    console.error("📧 メール変更PINコード送信失敗:", error);
+    throw error;
+  }
+};
+
+// 保護者メールアドレス変更通知（旧アドレスへ）
+export const sendEmailChangeNotification = async (
+  toEmail: string,
+  studentName: string
+) => {
+  const mailOptions = {
+    from: `"入退室システム" <${process.env.EMAIL_USER}>`,
+    to: toEmail,
+    subject: `【通知】${studentName}さんの保護者メールアドレス変更リクエスト`,
+    text: `${studentName}さんの保護者様\n\nお世話になっております。\n${studentName}さんより、保護者のメールアドレスを別のアドレスに変更するリクエストがありました。\n\n新しいメールアドレスに確認メールが送信されています。\n新しいアドレスの保護者様が確認リンクをクリックすると、変更が確定します。\n\n※この変更に心当たりがない場合は、学校の担当教員にお問い合わせください。`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    const safeToEmail = toEmail.replace(/[\r\n]/g, "");
+    console.log(`📧 メール変更通知送信成功: ${safeToEmail}`);
+  } catch (error) {
+    console.error("📧 メール変更通知送信失敗:", error);
+    // 通知は失敗しても処理は継続（クリティカルではない）
   }
 };

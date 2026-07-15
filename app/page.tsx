@@ -31,10 +31,13 @@ export default function Home() {
   const [requestValidUntil, setRequestValidUntil] = useState<string>("");
   const [requestError, setRequestError] = useState<string>("");
 
-  // 保護者メール変更用
-  const [emailChangeStatus, setEmailChangeStatus] = useState<'idle' | 'form' | 'loading' | 'success' | 'error'>('idle');
+  // 保護者メール変更用（3段階フロー）
+  const [emailChangeStep, setEmailChangeStep] = useState<'idle' | 'sending_pin' | 'pin_sent' | 'verifying_pin' | 'pin_verified' | 'form' | 'loading' | 'success' | 'error'>('idle');
   const [newParentEmail, setNewParentEmail] = useState<string>("");
   const [emailChangeError, setEmailChangeError] = useState<string>("");
+  const [pinCode, setPinCode] = useState<string>("");
+  const [maskedParentEmail, setMaskedParentEmail] = useState<string>("");
+  const [pinVerifiedToken, setPinVerifiedToken] = useState<string>("");
 
   const handleRequestPermission = async () => {
     setRequestStatus('loading');
@@ -400,19 +403,105 @@ export default function Home() {
         ログアウト
       </button>
 
-      {/* 保護者メール変更セクション（ログアウトボタンの下） */}
+      {/* 保護者メール変更セクション（ログアウトボタンの下）- 3段階フロー */}
       {!session.user.isAdmin && (
         <div className="mt-2 mb-8 w-full max-w-sm text-center">
-          {emailChangeStatus === 'idle' ? (
+          {emailChangeStep === 'idle' && (
             <button
-              onClick={() => setEmailChangeStatus('form')}
+              onClick={async () => {
+                setEmailChangeStep('sending_pin');
+                setEmailChangeError('');
+                try {
+                  const res = await fetch('/api/user/email-change-pin', { method: 'POST' });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setMaskedParentEmail(data.maskedEmail || '');
+                    setEmailChangeStep('pin_sent');
+                  } else {
+                    setEmailChangeError(data.error || 'エラーが発生しました');
+                    setEmailChangeStep('error');
+                  }
+                } catch {
+                  setEmailChangeError('通信エラーが発生しました');
+                  setEmailChangeStep('error');
+                }
+              }}
               className="text-xs text-gray-400 hover:text-gray-600 underline"
             >
               保護者のメールアドレスを変更する
             </button>
-          ) : emailChangeStatus === 'form' ? (
-            <div className="bg-gray-50 p-4 rounded border border-gray-200 text-left">
-              <p className="text-sm font-bold text-gray-700 mb-2">新しい保護者のメールアドレス</p>
+          )}
+
+          {emailChangeStep === 'sending_pin' && (
+            <p className="text-xs text-gray-500">保護者メールにPINコードを送信中...</p>
+          )}
+
+          {/* Step 1: PIN入力 */}
+          {emailChangeStep === 'pin_sent' && (
+            <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-left">
+              <p className="text-sm font-bold text-gray-700 mb-1">🔐 確認コードを入力</p>
+              <p className="text-[10px] text-gray-500 mb-3">
+                保護者のメールアドレス（{maskedParentEmail}）に4桁の確認コードを送信しました。<br />
+                保護者の方に確認コードを聞いて入力してください。
+              </p>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                className="w-full border-2 border-yellow-300 p-3 rounded text-black text-center text-2xl font-mono tracking-[0.5em] mb-3"
+                placeholder="0000"
+                value={pinCode}
+                onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setEmailChangeStep('idle'); setPinCode(''); setEmailChangeError(''); }}
+                  className="w-1/3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-2 rounded text-sm"
+                >キャンセル</button>
+                <button
+                  disabled={pinCode.length !== 4}
+                  onClick={async () => {
+                    setEmailChangeStep('verifying_pin');
+                    setEmailChangeError('');
+                    try {
+                      const res = await fetch('/api/user/email-change-verify-pin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pin: pinCode })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setPinVerifiedToken(data.verifiedToken);
+                        setPinCode('');
+                        setEmailChangeStep('form');
+                      } else {
+                        setEmailChangeError(data.error || 'エラーが発生しました');
+                        setEmailChangeStep('pin_sent');
+                      }
+                    } catch {
+                      setEmailChangeError('通信エラーが発生しました');
+                      setEmailChangeStep('pin_sent');
+                    }
+                  }}
+                  className="w-2/3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-2 px-2 rounded text-sm transition-colors"
+                >確認する</button>
+              </div>
+              {emailChangeError && (
+                <p className="text-xs text-red-600 mt-2 bg-red-50 p-2 rounded">⚠ {emailChangeError}</p>
+              )}
+              <p className="text-[10px] text-gray-400 mt-2">※有効期限: 10分 / 試行回数: 最大5回</p>
+            </div>
+          )}
+
+          {emailChangeStep === 'verifying_pin' && (
+            <p className="text-xs text-gray-500">確認コードを検証中...</p>
+          )}
+
+          {/* Step 2: 新しいメールアドレス入力 */}
+          {emailChangeStep === 'form' && (
+            <div className="bg-green-50 p-4 rounded border border-green-200 text-left">
+              <p className="text-sm font-bold text-green-700 mb-1">✅ 確認コード認証済み</p>
+              <p className="text-[10px] text-gray-500 mb-3">新しい保護者のメールアドレスを入力してください。</p>
               <input
                 type="email"
                 className="w-full border p-2 rounded text-black text-sm mb-2"
@@ -423,43 +512,52 @@ export default function Home() {
               <p className="text-[10px] text-gray-400 mb-3">※学校のメールアドレスは使用できません。新しいアドレスに確認メールが届きます。</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setEmailChangeStatus('idle'); setNewParentEmail(''); setEmailChangeError(''); }}
+                  onClick={() => { setEmailChangeStep('idle'); setNewParentEmail(''); setEmailChangeError(''); setPinVerifiedToken(''); }}
                   className="w-1/3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-2 rounded text-sm"
                 >キャンセル</button>
                 <button
                   onClick={async () => {
-                    setEmailChangeStatus('loading');
+                    setEmailChangeStep('loading');
                     setEmailChangeError('');
                     try {
                       const res = await fetch('/api/user/change-parent-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ newParentEmail })
+                        body: JSON.stringify({ newParentEmail, verifiedToken: pinVerifiedToken })
                       });
                       if (res.ok) {
-                        setEmailChangeStatus('success');
+                        setEmailChangeStep('success');
                       } else {
                         const data = await res.json();
                         setEmailChangeError(data.error || 'エラーが発生しました');
-                        setEmailChangeStatus('error');
+                        setEmailChangeStep('error');
                       }
                     } catch {
                       setEmailChangeError('通信エラーが発生しました');
-                      setEmailChangeStatus('error');
+                      setEmailChangeStep('error');
                     }
                   }}
                   className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-2 rounded text-sm"
                 >確認メールを送信</button>
               </div>
             </div>
-          ) : emailChangeStatus === 'loading' ? (
+          )}
+
+          {emailChangeStep === 'loading' && (
             <p className="text-xs text-gray-500">送信中...</p>
-          ) : emailChangeStatus === 'success' ? (
-            <p className="text-xs text-green-600 font-bold">確認メールを送信しました。保護者の方にメール内のリンクをクリックしてもらってください。</p>
-          ) : (
-            <div className="text-xs text-red-600">
-              <p>送信失敗: {emailChangeError}</p>
-              <button onClick={() => setEmailChangeStatus('form')} className="text-blue-500 underline mt-1">やり直す</button>
+          )}
+
+          {emailChangeStep === 'success' && (
+            <div className="bg-green-50 p-3 rounded border border-green-200">
+              <p className="text-xs text-green-600 font-bold">✅ 確認メールを送信しました。</p>
+              <p className="text-[10px] text-gray-500 mt-1">新しい保護者のメールアドレスに届いたリンクをクリックしてもらうと、変更が確定します。</p>
+            </div>
+          )}
+
+          {emailChangeStep === 'error' && (
+            <div className="text-xs text-red-600 bg-red-50 p-3 rounded border border-red-200">
+              <p>⚠ {emailChangeError}</p>
+              <button onClick={() => setEmailChangeStep('idle')} className="text-blue-500 underline mt-1">最初からやり直す</button>
             </div>
           )}
         </div>

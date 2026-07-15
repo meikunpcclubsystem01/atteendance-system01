@@ -17,23 +17,23 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Server error" }, { status: 500 });
         }
 
-        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string; purpose?: string };
+        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string; guardianVersion?: number; purpose?: string };
 
         if (decoded.purpose !== "parent_history") {
             return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
         }
 
         // セキュリティ: トークンから取得したuserIdの型・形式を検証
-        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
+        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100 || !Number.isInteger(decoded.guardianVersion)) {
             return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
         }
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
-            select: { name: true, studentId: true },
+            select: { name: true, studentId: true, guardianVerifiedAt: true, guardianVersion: true },
         });
 
-        if (!user) {
+        if (!user || !user.guardianVerifiedAt || user.guardianVersion !== decoded.guardianVersion) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 

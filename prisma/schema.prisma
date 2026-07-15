@@ -60,9 +60,16 @@ model User {
 
   validFrom   DateTime? // 許可期間開始
   validUntil  DateTime? // 許可期間終了
-  currentSeat String? // 現在使用中の座席番号
+  currentSeat String?   @unique // 在室中の座席はDBで一意に確保する
 
-  logs AttendanceLog[] // 入退室履歴との紐付け
+  parentEmailChangedAt DateTime? // 保護者メール最終変更日時（クールダウン制御用）
+  guardianVerifiedAt   DateTime? // 学校または既存保護者が関係を確認した日時
+  guardianVersion      Int       @default(1) // 保護者変更時に更新し、既存リンクを失効させる
+
+  logs              AttendanceLog[] // 入退室履歴との紐付け
+  emailChangePins   EmailChangePin[]
+  emailChangeTokens EmailChangeToken[]
+  permissionTokens  PermissionToken[]
 }
 
 // ▼入退室の履歴テーブル
@@ -78,15 +85,78 @@ model AttendanceLog {
 
 // ▼管理者操作ログテーブル
 model AdminLog {
-  id        String   @id @default(cuid())
-  adminEmail String  // 操作した管理者のメールアドレス
-  action    String   // 操作種別 (FORCE_LOGOUT, BULK_FORCE_LOGOUT, DELETE_USER, YEAR_RESET, etc.)
-  details   String?  // 詳細（対象ユーザー名等）
-  timestamp DateTime @default(now())
+  id         String   @id @default(cuid())
+  adminEmail String // 操作した管理者のメールアドレス
+  action     String // 操作種別 (FORCE_LOGOUT, BULK_FORCE_LOGOUT, DELETE_USER, YEAR_RESET, etc.)
+  details    String? // 詳細（対象ユーザー名等）
+  timestamp  DateTime @default(now())
+}
+
+// ▼保護者メール変更用PINテーブル
+model EmailChangePin {
+  id         String    @id @default(cuid())
+  userId     String
+  pin        String // ハッシュ化された4桁PIN
+  expiresAt  DateTime // 有効期限（10分後）
+  attempts   Int       @default(0) // 試行回数
+  verified   Boolean   @default(false) // PIN検証済みフラグ
+  verifiedAt DateTime?
+  consumedAt DateTime? // メール変更要求に使用した日時
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ▼保護者メール変更確認トークンテーブル（再利用防止）
+model EmailChangeToken {
+  id              String    @id @default(cuid())
+  tokenHash       String    @unique // JWTトークンのハッシュ
+  userId          String
+  newParentEmail  String
+  guardianVersion Int
+  expiresAt       DateTime
+  usedAt          DateTime? // 使用日時（nullなら未使用）
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ▼保護者の利用許可リンク（単回使用）
+model PermissionToken {
+  id              String    @id @default(cuid())
+  tokenHash       String    @unique
+  userId          String
+  guardianVersion Int
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ▼管理者の破壊的操作に対する短命・単回使用grant
+model AdminStepUpGrant {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  adminEmail String
+  action     String
+  targetId   String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([adminEmail, action, targetId])
 }
 
 // ▼システム設定テーブル（座席レイアウト等）
 model SystemSetting {
-  key   String @id       // 設定キー（例: "seat_layout"）
-  value String @db.Text  // 設定値（JSON文字列）
+  key   String @id // 設定キー（例: "seat_layout"）
+  value String @db.Text // 設定値（JSON文字列）
 }

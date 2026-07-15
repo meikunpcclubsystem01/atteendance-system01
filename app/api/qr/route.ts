@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 import jwt from "jsonwebtoken";
+import { prisma } from "@/lib/prisma";
+import { attendanceEligibilityError } from "@/lib/security/attendance";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +18,15 @@ export async function GET() {
   if (!process.env.NEXTAUTH_SECRET) {
     console.error("NEXTAUTH_SECRET is not set in environment variables.");
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  const eligibilityError = attendanceEligibilityError(user);
+  if (eligibilityError) {
+    return NextResponse.json({ error: eligibilityError }, { status: 403 });
   }
 
   // QRコードに埋め込むデータ（ペイロード）

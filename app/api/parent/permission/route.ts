@@ -1,134 +1,146 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
+import { prisma } from "@/lib/prisma";
 
-// GET: マジックリンクの有効性確認と、現在の設定取得
+interface PermissionPayload {
+    userId: string;
+    guardianVersion: number;
+    requestedValidFrom?: string;
+    requestedValidUntil?: string;
+    purpose?: string;
+}
+
+function decodePermissionToken(token: string): PermissionPayload {
+    if (!process.env.NEXTAUTH_SECRET) throw new Error("SERVER_CONFIG");
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as PermissionPayload;
+    if (
+        decoded.purpose !== "permission_request" ||
+        !decoded.userId ||
+        decoded.userId.length > 100 ||
+        !Number.isInteger(decoded.guardianVersion)
+    ) {
+        throw new Error("INVALID_TOKEN");
+    }
+    return decoded;
+}
+
+function tokenHash(token: string): string {
+    return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export async function GET(req: Request) {
     try {
-        const { searchParams } = new URL(req.url);
-        const token = searchParams.get("token");
+        const token = new URL(req.url).searchParams.get("token");
+        if (!token || token.length > 2048) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
-        if (!token || typeof token !== "string" || token.length > 2048) return NextResponse.json({ error: "Missing token" }, { status: 400 });
-
-        if (!process.env.NEXTAUTH_SECRET) {
-            return NextResponse.json({ error: "Server error" }, { status: 500 });
+        const decoded = decodePermissionToken(token);
+        const now = new Date();
+        const [record, user] = await Promise.all([
+            prisma.permissionToken.findFirst({
+                where: {
+                    tokenHash: tokenHash(token),
+                    userId: decoded.userId,
+                    guardianVersion: decoded.guardianVersion,
+                    usedAt: null,
+                    expiresAt: { gt: now },
+                },
+            }),
+            prisma.user.findUnique({
+                where: { id: decoded.userId },
+                select: {
+                    name: true,
+                    studentId: true,
+                    validFrom: true,
+                    validUntil: true,
+                    guardianVerifiedAt: true,
+                    guardianVersion: true,
+                },
+            }),
+        ]);
+        if (!record || !user || !user.guardianVerifiedAt || user.guardianVersion !== decoded.guardianVersion) {
+            return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
         }
 
-        interface TokenPayload {
-            userId: string;
-            requestedValidFrom?: string;
-            requestedValidUntil?: string;
-        }
-
-        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as TokenPayload;
-
-        if ((decoded as TokenPayload & { purpose?: string }).purpose !== "permission_request") {
-            return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
-        }
-
-        // セキュリティ: トークンから取得したuserIdの型・形式を検証
-        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
-            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: { name: true, studentId: true, validFrom: true, validUntil: true }
-        });
-
-        if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-        const formatJST = (d: Date | null) => {
-            if (!d) return null;
-            const jstDate = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-            return jstDate.toISOString().split('T')[0];
+        const formatJST = (date: Date | null) => {
+            if (!date) return null;
+            return new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().split("T")[0];
         };
-
         return NextResponse.json({
             studentName: user.name || user.studentId,
             validFrom: formatJST(user.validFrom),
             validUntil: formatJST(user.validUntil),
             requestedValidFrom: decoded.requestedValidFrom,
-            requestedValidUntil: decoded.requestedValidUntil
+            requestedValidUntil: decoded.requestedValidUntil,
         });
-
     } catch (error) {
-        console.error("Token verification failed:", error);
+        if (error instanceof Error && error.message === "SERVER_CONFIG") {
+            return NextResponse.json({ error: "Server error" }, { status: 500 });
+        }
         return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 }
 
-// POST: 保護者による期間の更新
 export async function POST(req: Request) {
     try {
         const { token, validFrom, validUntil } = await req.json();
-
-        if (!token || typeof token !== "string" || token.length > 2048) return NextResponse.json({ error: "Missing token" }, { status: 400 });
-
-        if (!process.env.NEXTAUTH_SECRET) {
-            return NextResponse.json({ error: "Server error" }, { status: 500 });
+        if (!token || typeof token !== "string" || token.length > 2048) {
+            return NextResponse.json({ error: "Missing token" }, { status: 400 });
         }
-
-        const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET) as { userId: string; purpose?: string };
-
-        if (decoded.purpose !== "permission_request") {
-            return NextResponse.json({ error: "Invalid token type" }, { status: 400 });
-        }
-
-        // セキュリティ: トークンから取得したuserIdの型・形式を検証
-        if (!decoded.userId || typeof decoded.userId !== "string" || decoded.userId.length > 100) {
-            return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
-        }
-
-        const data: { validFrom?: Date | null; validUntil?: Date | null } = {};
-
-        if (validFrom !== undefined) data.validFrom = validFrom ? new Date(`${validFrom}T00:00:00+09:00`) : null;
-
-        // システム仕様：有効期間は年度をまたげない（最長で今年度末の3月31日まで）、かつ必須
-        if (!validUntil) {
+        if (!validUntil || typeof validUntil !== "string") {
             return NextResponse.json({ error: "有効期限（終了日）の指定は必須です" }, { status: 400 });
         }
-
-        const untilDate = new Date(`${validUntil}T23:59:59+09:00`);
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = now.getMonth() + 1;
-        const maxYear = m >= 4 ? y + 1 : y;
-        const maxDate = new Date(`${maxYear}-03-31T23:59:59+09:00`);
-
-        if (untilDate > maxDate) {
-            return NextResponse.json({ error: `有効期限は ${maxYear}年3月31日 までしか設定できません。` }, { status: 400 });
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if ((validFrom && (typeof validFrom !== "string" || !dateRegex.test(validFrom))) || !dateRegex.test(validUntil)) {
+            return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
         }
 
-        data.validUntil = untilDate;
+        const decoded = decodePermissionToken(token);
+        const fromDate = validFrom ? new Date(`${validFrom}T00:00:00+09:00`) : null;
+        const untilDate = new Date(`${validUntil}T23:59:59+09:00`);
+        if (Number.isNaN(untilDate.getTime()) || (fromDate && Number.isNaN(fromDate.getTime()))) {
+            return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+        }
 
-        // #3 トークンリプレイ防止: 使用済みトークンチェック
-        const tokenHash = crypto.createHash("sha256").update(token).digest("hex").slice(0, 32);
-        const usedKey = `used_permission_${tokenHash}`;
-        try {
-            const used = await prisma.systemSetting.findUnique({ where: { key: usedKey } });
-            if (used) {
-                return NextResponse.json({ error: "このリンクは既に使用済みです" }, { status: 400 });
-            }
-        } catch { /* テーブルがない場合は無視 */ }
+        const now = new Date();
+        const year = now.getFullYear();
+        const maxYear = now.getMonth() + 1 >= 4 ? year + 1 : year;
+        const maxDate = new Date(`${maxYear}-03-31T23:59:59+09:00`);
+        if (untilDate > maxDate || (fromDate && fromDate > untilDate)) {
+            return NextResponse.json({ error: `有効期限は ${maxYear}年3月31日 までの有効な期間を指定してください。` }, { status: 400 });
+        }
 
-        await prisma.user.update({
-            where: { id: decoded.userId },
-            data
-        });
-
-        // トークンを使用済みとして記録
-        try {
-            await prisma.systemSetting.create({
-                data: { key: usedKey, value: new Date().toISOString() }
+        const consumed = await prisma.$transaction(async (tx) => {
+            const tokenResult = await tx.permissionToken.updateMany({
+                where: {
+                    tokenHash: tokenHash(token),
+                    userId: decoded.userId,
+                    guardianVersion: decoded.guardianVersion,
+                    usedAt: null,
+                    expiresAt: { gt: now },
+                },
+                data: { usedAt: now },
             });
-        } catch { /* 重複キーの場合は無視 */ }
+            if (tokenResult.count !== 1) return false;
 
+            const userResult = await tx.user.updateMany({
+                where: {
+                    id: decoded.userId,
+                    guardianVersion: decoded.guardianVersion,
+                    guardianVerifiedAt: { not: null },
+                },
+                data: { validFrom: fromDate, validUntil: untilDate },
+            });
+            return userResult.count === 1;
+        });
+        if (!consumed) {
+            return NextResponse.json({ error: "このリンクは使用済み、失効済み、または期限切れです" }, { status: 400 });
+        }
         return NextResponse.json({ success: true });
-
     } catch (error) {
-        console.error("Update permission failed:", error);
+        if (error instanceof Error && error.message === "SERVER_CONFIG") {
+            return NextResponse.json({ error: "Server error" }, { status: 500 });
+        }
         return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 }

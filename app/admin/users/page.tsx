@@ -140,9 +140,24 @@ function AdminUsersContent() {
       return;
     }
 
+    const pin = window.prompt("削除を実行するため、管理者暗証番号を再入力してください");
+    if (!pin) return;
+
     try {
+      const verifyRes = await fetch("/api/admin/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, action: "DELETE_USER", targetId: userId }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.stepUpToken) {
+        alert(verifyData.error || "暗証番号の確認に失敗しました");
+        return;
+      }
+
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: "DELETE",
+        headers: { "X-Admin-Step-Up": verifyData.stepUpToken },
       });
 
       if (res.ok) {

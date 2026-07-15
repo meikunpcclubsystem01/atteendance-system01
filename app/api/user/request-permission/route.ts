@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
 import { sendPermissionRequestEmail } from "@/lib/mail";
 import { checkRateLimit } from "@/lib/rateLimit";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
     try {
@@ -35,6 +36,9 @@ export async function POST(req: Request) {
         if (!user || !user.parentEmail) {
             return NextResponse.json({ error: "Parent email not found" }, { status: 400 });
         }
+        if (!user.guardianVerifiedAt) {
+            return NextResponse.json({ error: "保護者情報を学校で確認してから利用許可を申請してください" }, { status: 403 });
+        }
 
         if (!process.env.NEXTAUTH_SECRET || !process.env.NEXTAUTH_URL) {
             console.error("Missing environment variables for JWT or URL.");
@@ -43,10 +47,29 @@ export async function POST(req: Request) {
 
         // 保護者向けの一時的な設定用トークンを発行（7日間有効）
         const token = jwt.sign(
-            { userId: user.id, requestedValidFrom: validFrom, requestedValidUntil: validUntil, purpose: "permission_request" },
+            {
+                userId: user.id,
+                guardianVersion: user.guardianVersion,
+                requestedValidFrom: validFrom,
+                requestedValidUntil: validUntil,
+                purpose: "permission_request",
+                nonce: crypto.randomUUID(),
+            },
             process.env.NEXTAUTH_SECRET,
             { expiresIn: "7d" }
         );
+
+        const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await prisma.$transaction([
+            prisma.permissionToken.updateMany({
+                where: { userId: user.id, usedAt: null },
+                data: { usedAt: new Date() },
+            }),
+            prisma.permissionToken.create({
+                data: { tokenHash, userId: user.id, guardianVersion: user.guardianVersion, expiresAt },
+            }),
+        ]);
 
         const magicLink = `${process.env.NEXTAUTH_URL}/parent/permission?token=${token}`;
 

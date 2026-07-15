@@ -2,6 +2,7 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { isSchoolMailbox } from "@/lib/security/email";
 
 // ▼ ここに export const authOptions を追加しました
 import { Adapter } from "next-auth/adapters";
@@ -30,7 +31,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // 2. 一般生徒の場合は、指定ドメイン（学校のドメイン）で終わる場合のみ許可
-      if (user.email && user.email.endsWith(`@${allowedDomain}`)) {
+      if (user.email && isSchoolMailbox(user.email, allowedDomain)) {
         return true;
       }
 

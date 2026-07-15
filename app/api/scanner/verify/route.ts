@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
+import { attendanceEligibilityError } from "@/lib/security/attendance";
 
 export async function POST(req: Request) {
     try {
@@ -35,6 +36,8 @@ export async function POST(req: Request) {
                 name: true,
                 studentId: true,
                 currentStatus: true,
+                isRegistered: true,
+                guardianVerifiedAt: true,
                 validFrom: true,
                 validUntil: true,
             }
@@ -46,12 +49,9 @@ export async function POST(req: Request) {
 
         const now = new Date();
 
-        // 保護者による利用許可機能（有効期限管理）
-        if (user.validFrom && now < user.validFrom) {
-            return NextResponse.json({ error: "利用開始日前です" }, { status: 403 });
-        }
-        if (user.validUntil && now > user.validUntil) {
-            return NextResponse.json({ error: "利用有効期限が切れています" }, { status: 403 });
+        const eligibilityError = attendanceEligibilityError(user, now);
+        if (eligibilityError) {
+            return NextResponse.json({ error: eligibilityError }, { status: 403 });
         }
 
         // 二重読み込み防止ロジック

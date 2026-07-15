@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { isSchoolMailbox, normalizeEmail } from "@/lib/security/email";
 
 export async function POST(req: Request) {
   // 誰がログインしているか確認する
@@ -18,14 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "名前が正しくありません（50文字以内で入力してください）" }, { status: 400 });
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!parentEmail || typeof parentEmail !== "string" || parentEmail.length > 255 || !emailRegex.test(parentEmail)) {
+  const normalizedParentEmail = normalizeEmail(parentEmail);
+  if (!normalizedParentEmail) {
     return NextResponse.json({ error: "不正なメールアドレス形式、または文字数が多すぎます" }, { status: 400 });
   }
 
   // 学校ドメインのブロック（生徒が自分のメールを保護者メールとして登録するのを防ぐ）
   const allowedDomain = process.env.ALLOWED_DOMAIN || "niigata-meikun.ed.jp";
-  if (parentEmail.endsWith(`@${allowedDomain}`)) {
+  if (isSchoolMailbox(normalizedParentEmail, allowedDomain)) {
     return NextResponse.json({ error: "学校のメールアドレスは保護者メールとして登録できません" }, { status: 400 });
   }
 
@@ -34,7 +35,9 @@ export async function POST(req: Request) {
     where: { id: session.user.id },
     data: {
       name: name,
-      parentEmail: parentEmail,
+      parentEmail: normalizedParentEmail,
+      guardianVerifiedAt: null,
+      guardianVersion: { increment: 1 },
       isRegistered: true,
     },
   });

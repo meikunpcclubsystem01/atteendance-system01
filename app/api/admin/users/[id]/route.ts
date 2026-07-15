@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { recordAdminLog } from "@/lib/adminLog";
+import crypto from "crypto";
+import { isSchoolMailbox, normalizeEmail } from "@/lib/security/email";
 
 // 管理者権限チェック用のユーティリティ関数
 async function isAdmin() {
@@ -42,13 +43,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (parentEmail !== undefined) {
-      if (parentEmail !== "" && typeof parentEmail === "string") {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (parentEmail.length > 255 || !emailRegex.test(parentEmail)) {
+      if (parentEmail !== "") {
+        const normalizedParentEmail = normalizeEmail(parentEmail);
+        if (!normalizedParentEmail) {
           return NextResponse.json({ error: "不正なメールアドレス形式です" }, { status: 400 });
         }
+        const allowedDomain = process.env.ALLOWED_DOMAIN || "niigata-meikun.ed.jp";
+        if (isSchoolMailbox(normalizedParentEmail, allowedDomain)) {
+          return NextResponse.json({ error: "学校のメールアドレスは保護者メールとして登録できません" }, { status: 400 });
+        }
+        data.parentEmail = normalizedParentEmail;
+        data.guardianVerifiedAt = new Date();
+      } else {
+        data.parentEmail = null;
+        data.guardianVerifiedAt = null;
       }
-      data.parentEmail = parentEmail === "" ? null : parentEmail;
+      data.guardianVersion = { increment: 1 };
     }
 
     const user = await prisma.user.update({
@@ -84,22 +94,46 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: "Cannot delete your own admin account" }, { status: 400 });
     }
 
-    // AttendanceLog は Prisma のスキーマ設定 (onDelete: Cascade) により自動削除されますが、
-    // 明示的にトランザクションで削除することも可能です。今回は単一削除でCascadeに依存します。
-    await prisma.user.delete({
-      where: { id },
-    });
-
-    if (session?.user?.email) {
-      await recordAdminLog(
-        session.user.email,
-        "DELETE_USER",
-        `ユーザー削除: ${targetUser?.name || "不明"} (${targetUser?.studentId || id})`
-      );
+    const stepUpToken = req.headers.get("x-admin-step-up");
+    if (!session?.user?.email || !stepUpToken || stepUpToken.length > 256) {
+      return NextResponse.json({ error: "削除には暗証番号の再確認が必要です" }, { status: 403 });
     }
+
+    const tokenHash = crypto.createHash("sha256").update(stepUpToken).digest("hex");
+    const now = new Date();
+
+    await prisma.$transaction(async (tx) => {
+      const consumed = await tx.adminStepUpGrant.updateMany({
+        where: {
+          tokenHash,
+          adminEmail: session.user.email!,
+          action: "DELETE_USER",
+          targetId: id,
+          usedAt: null,
+          expiresAt: { gt: now },
+        },
+        data: { usedAt: now },
+      });
+
+      if (consumed.count !== 1) {
+        throw new Error("INVALID_STEP_UP_GRANT");
+      }
+
+      await tx.user.delete({ where: { id } });
+      await tx.adminLog.create({
+        data: {
+          adminEmail: session.user.email!,
+          action: "DELETE_USER",
+          details: `ユーザー削除: ${targetUser?.name || "不明"} (${targetUser?.studentId || id})`,
+        },
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "INVALID_STEP_UP_GRANT") {
+      return NextResponse.json({ error: "暗証番号の再確認が無効または期限切れです" }, { status: 403 });
+    }
     console.error("Failed to delete user:", error);
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
