@@ -79,6 +79,14 @@ CREATE TABLE IF NOT EXISTS "AdminStepUpGrant" (
     CONSTRAINT "AdminStepUpGrant_pkey" PRIMARY KEY ("id")
 );
 
+-- These tables are owned exclusively by the server-side application. Supabase
+-- grants its API roles table privileges by default, so RLS with no public
+-- policies keeps token and step-up data inaccessible through PostgREST.
+ALTER TABLE "EmailChangePin" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "EmailChangeToken" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "PermissionToken" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "AdminStepUpGrant" ENABLE ROW LEVEL SECURITY;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "EmailChangeToken_tokenHash_key" ON "EmailChangeToken"("tokenHash");
 CREATE UNIQUE INDEX IF NOT EXISTS "PermissionToken_tokenHash_key" ON "PermissionToken"("tokenHash");
 CREATE UNIQUE INDEX IF NOT EXISTS "AdminStepUpGrant_tokenHash_key" ON "AdminStepUpGrant"("tokenHash");

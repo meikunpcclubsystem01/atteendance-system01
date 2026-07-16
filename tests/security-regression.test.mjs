@@ -54,6 +54,21 @@ test("attendance and administrator destructive actions use database-owned invari
   assert.match(deleteRoute, /action: "DELETE_USER"/);
 });
 
+test("server-owned security tables deny Supabase API roles by default", () => {
+  const migration = source("prisma/manual-migrations/security-hardening.sql");
+  const serverOwnedTables = [
+    "EmailChangePin",
+    "EmailChangeToken",
+    "PermissionToken",
+    "AdminStepUpGrant",
+  ];
+
+  for (const table of serverOwnedTables) {
+    assert.match(migration, new RegExp(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY;`));
+    assert.doesNotMatch(migration, new RegExp(`CREATE POLICY[^;]*ON "${table}"`, "i"));
+  }
+});
+
 test("Next.js is at or above the patched 16.2.5 line", () => {
   const pkg = JSON.parse(source("package.json"));
   const [major, minor, patch] = pkg.dependencies.next.split(".").map(Number);
