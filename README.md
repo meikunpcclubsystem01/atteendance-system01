@@ -44,3 +44,19 @@ DBスキーマを変更するリリースでは、アプリ更新前に [セキ�
 - [利用者向けガイド](./USER_GUIDE.md)
 - [運用・引き継ぎ資料](./PROJECT_HANDOVER.md)
 - [技術仕様](./docs/tech/INTERNAL_SPECS.md)
+- [VPSデプロイガイド](./VPS_DEPLOYMENT_GUIDE.md)
+- [セキュリティDB変更手順](./prisma/manual-migrations/README.md)
+
+### ローカル文書ハブ
+
+公開用ではない資料を含め、プロジェクト内の全ドキュメントを用途別に
+検索・参照するHTMLを生成できます。元ファイルは移動せず、同名PDFは
+Markdownと同じ行にまとめられます。
+
+```bash
+npm run docs:hub
+open .local-docs/index.html
+```
+
+生成先の `.local-docs/` と機密資料の `.secrets/` はGit管理対象外です。
+文書を追加・更新した後は、同じコマンドで一覧を再生成してください。
