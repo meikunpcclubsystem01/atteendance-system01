@@ -59,3 +59,14 @@ test("Next.js is at or above the patched 16.2.5 line", () => {
   const [major, minor, patch] = pkg.dependencies.next.split(".").map(Number);
   assert.ok(major > 16 || (major === 16 && (minor > 2 || (minor === 2 && patch >= 5))));
 });
+
+test("mail transport keeps vulnerable Nodemailer feature paths unreachable", () => {
+  const mail = source("lib/mail.ts");
+  assert.match(mail, /disableFileAccess:\s*true/);
+  assert.match(mail, /disableUrlAccess:\s*true/);
+  assert.doesNotMatch(mail, /\braw\s*:/);
+  assert.doesNotMatch(mail, /\benvelope\s*:/);
+  assert.doesNotMatch(mail, /\blist\s*:/);
+  assert.doesNotMatch(mail, /\bjsonTransport\s*:/);
+  assert.doesNotMatch(mail, /type:\s*["']OAuth2["']/);
+});

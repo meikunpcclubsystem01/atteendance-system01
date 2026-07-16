@@ -11,13 +11,13 @@
     "test:security-db": "node tests/security-database.integration.mjs"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.1",
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@auth/prisma-adapter": "^2.11.2",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "jsonwebtoken": "^9.0.3",
     "jsqr": "^1.4.0",
-    "next": "16.2.9",
-    "next-auth": "^4.24.13",
+    "next": "16.2.10",
+    "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",
     "pg": "^8.20.0",
     "qrcode.react": "^4.2.0",
@@ -35,8 +35,8 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.3.1",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "prisma": "^7.4.2",
+    "eslint-config-next": "16.2.10",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
