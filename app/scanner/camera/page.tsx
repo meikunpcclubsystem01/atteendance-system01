@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import useSWR from "swr";
 import SeatMap from "@/components/SeatMap";
@@ -51,37 +51,6 @@ export default function CameraScannerPage() {
         };
     }, []);
 
-    // QRコードスキャンループ
-    useEffect(() => {
-        if (cameraError || scannerMode !== "SCANNING") return;
-
-        const interval = setInterval(() => {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return;
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-            if (code && code.data && code.data !== lastProcessedRef.current) {
-                lastProcessedRef.current = code.data;
-                handleScan(code.data);
-
-                // 3秒後にリセット（同じQRを連続で読まないように）
-                setTimeout(() => { lastProcessedRef.current = ""; }, 3000);
-            }
-        }, 200);
-
-        return () => clearInterval(interval);
-    }, [cameraError, scannerMode]);
-
     // ステータスメッセージの自動リセット
     useEffect(() => {
         if (statusMessage !== "QRコードをカメラにかざしてください" && scannerMode === "SCANNING") {
@@ -92,7 +61,32 @@ export default function CameraScannerPage() {
         }
     }, [statusMessage, scannerMode]);
 
-    const handleScan = async (token: string) => {
+    const executeCheckin = useCallback(async (token: string, seat: string | null) => {
+        try {
+            const res = await fetch("/api/checkin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token, seat }),
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setLastScanned(`${data.user.name}さんが ${data.action === "IN" ? "入室" : "退室"} しました`);
+                setStatusMessage("成功！次のQRをどうぞ");
+                mutateSeats();
+            } else {
+                setStatusMessage("エラー: " + (data.error || "処理失敗"));
+            }
+        } catch {
+            setStatusMessage("通信エラーが発生しました");
+        } finally {
+            setScannerMode("SCANNING");
+            setScannedToken("");
+            setScannedUserName("");
+        }
+    }, [mutateSeats]);
+
+    const handleScan = useCallback(async (token: string) => {
         setStatusMessage("QRコード確認中...");
         try {
             const verifyRes = await fetch("/api/scanner/verify", {
@@ -122,32 +116,38 @@ export default function CameraScannerPage() {
         } catch {
             setStatusMessage("通信エラーが発生しました");
         }
-    };
+    }, [executeCheckin]);
 
-    const executeCheckin = async (token: string, seat: string | null) => {
-        try {
-            const res = await fetch("/api/checkin", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token, seat }),
-            });
-            const data = await res.json();
+    // QRコードスキャンループ
+    useEffect(() => {
+        if (cameraError || scannerMode !== "SCANNING") return;
 
-            if (res.ok) {
-                setLastScanned(`${data.user.name}さんが ${data.action === "IN" ? "入室" : "退室"} しました`);
-                setStatusMessage("成功！次のQRをどうぞ");
-                mutateSeats();
-            } else {
-                setStatusMessage("エラー: " + (data.error || "処理失敗"));
+        const interval = setInterval(() => {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code && code.data && code.data !== lastProcessedRef.current) {
+                lastProcessedRef.current = code.data;
+                handleScan(code.data);
+
+                // 3秒後にリセット（同じQRを連続で読まないように）
+                setTimeout(() => { lastProcessedRef.current = ""; }, 3000);
             }
-        } catch {
-            setStatusMessage("通信エラーが発生しました");
-        } finally {
-            setScannerMode("SCANNING");
-            setScannedToken("");
-            setScannedUserName("");
-        }
-    };
+        }, 200);
+
+        return () => clearInterval(interval);
+    }, [cameraError, scannerMode, handleScan]);
 
     const handleSeatClick = (seat: string) => {
         if (scannerMode === "SCANNING") {

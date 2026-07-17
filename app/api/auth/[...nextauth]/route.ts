@@ -13,6 +13,10 @@ export const authOptions: NextAuthOptions = {
     // Middleware(withAuth)はJWTでないと動作しないため、PrismaAdapter使用時も強制的にJWTを使用する
     strategy: "jwt"
   },
+  pages: {
+    // NextAuth標準の英語サインイン画面ではなく、トップページの独自ログインカードを使う
+    signIn: "/",
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -35,8 +39,8 @@ export const authOptions: NextAuthOptions = {
         return true;
       }
 
-      // それ以外（個人のGmailなど）はアクセス拒否のエラーページへ弾く
-      return "/api/auth/signin?error=AccessDenied";
+      // それ以外（個人のGmailなど）はアクセス拒否として独自ログイン画面へ弾く
+      return "/?error=AccessDenied";
     },
     // ▲ ここまで追加
 

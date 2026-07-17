@@ -28,9 +28,7 @@ export async function GET() {
                 timestamp: { gte: sixMonthsAgo },
                 action: "IN",
             },
-            include: {
-                user: { select: { currentSeat: true } },
-            },
+            select: { userId: true, timestamp: true, seat: true },
             orderBy: { timestamp: "asc" },
         });
 
@@ -73,20 +71,17 @@ export async function GET() {
             total: data.total,
         }));
 
-        // 座席別利用回数（INログから直前のチェックインで使われた座席を集計）
-        // チェックインのINログにはseatが紐付いていないので、ユーザーの最新状態からは取れない
-        // → INログ直後のユーザーの currentSeat から推測する代わりに、
-        //    AttendanceLog と同時に記録された user の currentSeat を使う
-        // 実際には checkin API が seat を受け取って user.currentSeat に保存するので、
-        // findMany で user の currentSeat を取ると「現在の」座席しか取れない
-        // → そこで、座席使用回数は別の方法で集計する必要がある
-        // 最もシンプルな方法: checkinログと同期的に記録された座席変更を追跡
-        // ただし既存のスキーマではAttendanceLogにseat列がないため、
-        // 現在在室中のユーザーのcurrentSeatデータのみから統計を取る方法に変更
-
-        // 代替案: 現在の全ユーザーの座席データから利用傾向を分析
-        // 現在のスキーマの制約上、過去の座席選択履歴は取得できないため
-        // 座席ランキングは現時点での在室者データのみから表示する
+        // 座席別利用回数ランキング（INログに記録された座席を集計。seat列導入前の過去ログは対象外）
+        const seatCountMap: Record<string, number> = {};
+        logs.forEach(log => {
+            if (log.seat) {
+                seatCountMap[log.seat] = (seatCountMap[log.seat] || 0) + 1;
+            }
+        });
+        const seatRanking = Object.entries(seatCountMap)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 10)
+            .map(([seat, count]) => ({ seat, count }));
 
         // 総利用者数・総セッション数
         const totalSessions = logs.length;
@@ -100,6 +95,7 @@ export async function GET() {
         return NextResponse.json({
             monthly,
             weekday,
+            seatRanking,
             totalSessions,
             totalUniqueUsers,
             totalRegistered,

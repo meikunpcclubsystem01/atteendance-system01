@@ -92,7 +92,7 @@ export default function ScannerPage() {
           setScannerMode("SELECT_SEAT");
           setStatusMessage(`${userName}さん、空いている座席をタップしてください`);
         }
-      } catch (_error) {
+      } catch {
         setStatusMessage("通信エラーが発生しました");
         setTimeout(() => inputRef.current?.focus(), 100);
       }
@@ -117,7 +117,7 @@ export default function ScannerPage() {
       } else {
         setStatusMessage("エラー: " + (data.error || "処理失敗"));
       }
-    } catch (_error) {
+    } catch {
       setStatusMessage("通信エラーが発生しました");
     } finally {
       // 処理が終わったらIDLE状態に戻す

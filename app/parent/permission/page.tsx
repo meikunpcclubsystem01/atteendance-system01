@@ -48,7 +48,7 @@ function PermissionForm() {
                 }
 
                 setStatus("idle");
-            } catch (e) {
+            } catch {
                 setStatus("invalid_token");
             }
         };

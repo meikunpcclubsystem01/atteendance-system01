@@ -82,14 +82,25 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // ログインしていない場合や未登録の場合のチェック
+  // 未登録の場合は初回登録ページへ（未ログイン時はこのページ自体がログイン画面になる）
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/api/auth/signin");
-    } else if (status === "authenticated" && session?.user?.isRegistered === false) {
+    if (status === "authenticated" && session?.user?.isRegistered === false) {
       router.push("/register");
     }
   }, [status, session, router]);
+
+  // ログイン失敗時のエラー表示（?error=AccessDenied 等）
+  const [authError, setAuthError] = useState<string>("");
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error) {
+      setAuthError(
+        error === "AccessDenied"
+          ? "このアカウントではログインできません。学校から配布されたGoogleアカウントを使用してください。"
+          : "ログインに失敗しました。もう一度お試しください。"
+      );
+    }
+  }, []);
 
   // 30秒ごとに新しいQRコード用トークンと混雑状況を取得する関数
   const fetchData = async () => {
@@ -156,6 +167,12 @@ export default function Home() {
           <div className="text-5xl mb-4">🏫</div>
           <h1 className="text-2xl font-bold mb-2">入退室システム</h1>
           <p className="text-gray-400 text-sm mb-6">自習室の入退室を管理するシステムです</p>
+
+          {authError && (
+            <div className="bg-red-900/40 border border-red-700/50 rounded-lg p-3 mb-4">
+              <p className="text-red-300 text-xs font-bold">{authError}</p>
+            </div>
+          )}
 
           <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-lg p-3 mb-6">
             <p className="text-yellow-300 text-xs font-bold mb-1">⚠ ログインについて</p>

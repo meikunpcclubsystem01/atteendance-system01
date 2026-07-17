@@ -8,6 +8,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 interface StatsData {
     monthly: { month: string; sessions: number; uniqueUsers: number }[];
     weekday: { day: string; avg: number; total: number }[];
+    seatRanking: { seat: string; count: number }[];
     totalSessions: number;
     totalUniqueUsers: number;
     totalRegistered: number;
@@ -90,6 +91,39 @@ export default function AdminStatsPage() {
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* 座席別利用ランキング */}
+                <div className="bg-white p-6 rounded-xl shadow-md border mb-8">
+                    <h2 className="text-lg font-bold mb-4">🪑 座席別利用ランキング（過去6ヶ月）</h2>
+                    {!data.seatRanking || data.seatRanking.length === 0 ? (
+                        <p className="text-gray-400 text-center py-8">
+                            まだデータがありません<br />
+                            <span className="text-xs">※座席の記録開始（2026年7月）以降の入室が集計対象です</span>
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {data.seatRanking.map((s, i) => {
+                                const maxCount = data.seatRanking[0].count;
+                                return (
+                                    <div key={s.seat} className="flex items-center gap-3">
+                                        <span className={`w-8 text-center text-sm font-black ${i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-orange-400" : "text-gray-300"}`}>
+                                            {i + 1}位
+                                        </span>
+                                        <span className="w-14 text-sm font-bold text-gray-700">{s.seat}</span>
+                                        <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                                            <div
+                                                className="h-5 bg-indigo-500 rounded-full transition-all duration-500 min-w-[4px]"
+                                                style={{ width: `${(s.count / maxCount) * 100}%` }}
+                                            />
+                                        </div>
+                                        <span className="w-12 text-right text-sm text-gray-600">{s.count}回</span>
+                                    </div>
+                                );
+                            })}
+                            <p className="text-[10px] text-gray-400 mt-2 text-right">※座席の記録開始以降の入室が集計対象です</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* 月別データテーブル */}

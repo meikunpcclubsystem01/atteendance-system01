@@ -1,5 +1,21 @@
 import type { NextConfig } from "next";
 
+// Next.jsのインラインブートストラップスクリプトのため script-src に 'unsafe-inline' が必要。
+// 'unsafe-eval' は開発モード（React Fast Refresh）のみ許可する。
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "media-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 const nextConfig: NextConfig = {
   output: "standalone", // ← これを追加
   /* config options here */
@@ -17,8 +33,8 @@ const nextConfig: NextConfig = {
             value: "max-age=63072000; includeSubDomains; preload",
           },
           {
-            key: "X-XSS-Protection",
-            value: "1; mode=block",
+            key: "Content-Security-Policy",
+            value: contentSecurityPolicy,
           },
           {
             key: "X-Frame-Options",

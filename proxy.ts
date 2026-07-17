@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
  * 命名規約として関数名を proxy に変更し、named export する必要があります。
  */
 export const proxy = withAuth(
-  function proxy(_req) {
+  function proxy() {
     // 認証済みのユーザー情報（token）はコールバック内で検証されるため
     // ここは基本的に通過させるだけでOKです
     return NextResponse.next();
@@ -20,7 +20,9 @@ export const proxy = withAuth(
         const isAdminRoute =
           path.startsWith("/admin") ||
           path.startsWith("/scanner") ||
-          path.startsWith("/api/admin");
+          path.startsWith("/api/admin") ||
+          path.startsWith("/api/scanner") ||
+          path.startsWith("/api/checkin");
 
         // アクセス先が管理者用URLの場合
         if (isAdminRoute) {
@@ -48,5 +50,7 @@ export const config = {
     "/admin/:path*",
     "/scanner/:path*",
     "/api/admin/:path*",
+    "/api/scanner/:path*",
+    "/api/checkin",
   ],
 };

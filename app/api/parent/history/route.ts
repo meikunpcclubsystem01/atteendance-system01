@@ -30,7 +30,7 @@ export async function GET(req: Request) {
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
-            select: { name: true, studentId: true, guardianVerifiedAt: true, guardianVersion: true },
+            select: { name: true, studentId: true, guardianVerifiedAt: true, guardianVersion: true, currentStatus: true },
         });
 
         if (!user || !user.guardianVerifiedAt || user.guardianVersion !== decoded.guardianVersion) {
@@ -77,6 +77,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({
             studentName: user.name || user.studentId,
+            currentStatus: user.currentStatus,
             history,
         });
     } catch (error) {

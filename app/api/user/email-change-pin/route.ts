@@ -5,10 +5,7 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { sendEmailChangePinEmail } from "@/lib/mail";
 import { checkRateLimit } from "@/lib/rateLimit";
-
-function hashPin(pin: string): string {
-    return crypto.createHash("sha256").update(pin).digest("hex");
-}
+import { hashPin } from "@/lib/security/pin";
 
 export async function POST() {
     try {

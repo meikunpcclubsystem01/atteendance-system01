@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jwt from "jsonwebtoken";
 import { attendanceEligibilityError } from "@/lib/security/attendance";
+import { getAdminSession } from "@/lib/security/adminAuth";
 
 export async function POST(req: Request) {
     try {
+        // なりすまし打刻対策: スキャナー端末（管理者セッション）からの呼び出しに限定する
+        const adminSession = await getAdminSession();
+        if (!adminSession) {
+            return NextResponse.json({ error: "スキャナー端末からのみ実行できます" }, { status: 403 });
+        }
+
         const { token } = await req.json();
 
         if (!token || typeof token !== "string" || token.length > 2048) {

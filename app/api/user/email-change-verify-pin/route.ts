@@ -4,10 +4,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
-
-function hashPin(pin: string): string {
-    return crypto.createHash("sha256").update(pin).digest("hex");
-}
+import { hashPin } from "@/lib/security/pin";
 
 export async function POST(req: Request) {
     try {

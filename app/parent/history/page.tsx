@@ -15,6 +15,7 @@ function ParentHistoryContent() {
     const token = searchParams.get("token");
 
     const [studentName, setStudentName] = useState<string>("");
+    const [currentStatus, setCurrentStatus] = useState<string>("");
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [status, setStatus] = useState<"loading" | "idle" | "error">("loading");
 
@@ -30,6 +31,7 @@ function ParentHistoryContent() {
                 if (!res.ok) throw new Error("Invalid token");
                 const data = await res.json();
                 setStudentName(data.studentName);
+                setCurrentStatus(data.currentStatus || "");
                 setHistory(data.history);
                 setStatus("idle");
             } catch {
@@ -55,9 +57,21 @@ function ParentHistoryContent() {
     return (
         <div className="bg-white rounded-lg shadow-md border">
             <div className="p-6 border-b">
-                <h2 className="text-lg font-bold text-gray-800">
-                    {studentName} さんの利用履歴
-                </h2>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <h2 className="text-lg font-bold text-gray-800">
+                        {studentName} さんの利用履歴
+                    </h2>
+                    {currentStatus && (
+                        <span
+                            className={`text-sm font-bold px-3 py-1 rounded-full ${currentStatus === "IN"
+                                ? "bg-green-100 text-green-700 border border-green-300"
+                                : "bg-gray-100 text-gray-500 border border-gray-300"
+                                }`}
+                        >
+                            {currentStatus === "IN" ? "● 現在 在室中" : "○ 現在 退室済み"}
+                        </span>
+                    )}
+                </div>
                 <p className="text-sm text-gray-500 mt-1">最新の利用状況を表示しています</p>
             </div>
 

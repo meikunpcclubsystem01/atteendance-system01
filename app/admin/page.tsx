@@ -41,7 +41,7 @@ export default function AdminPage() {
       } else {
         mutate();
       }
-    } catch (_err) {
+    } catch {
       alert("通信エラーが発生しました");
     } finally {
       setLoadingId(null);
@@ -78,9 +78,9 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 text-black p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold">在室者リスト (管理画面)</h1>
-          <div className="flex space-x-4 items-center">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
             <Link href="/admin/users" className="text-indigo-600 hover:underline font-bold">
               🔐 ユーザー管理
             </Link>

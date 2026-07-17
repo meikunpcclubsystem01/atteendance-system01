@@ -79,6 +79,7 @@ model AttendanceLog {
   action    String // "IN" (入室) または "OUT" (退室)
   timestamp DateTime @default(now()) // 打刻された時間
   remarks   String? // 手動退出などの備考
+  seat      String? // 入室時に選択した座席／退室時に空けた座席（座席別統計用。過去ログはnull）
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

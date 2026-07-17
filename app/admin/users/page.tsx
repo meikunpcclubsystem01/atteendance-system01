@@ -97,6 +97,16 @@ function AdminUsersContent() {
   const [resetStatus, setResetStatus] = useState<'idle' | 'preview' | 'loading' | 'done'>('idle');
   const [resetPreview, setResetPreview] = useState<number>(0);
   const [resetPin, setResetPin] = useState<string>("");
+  const [exportFrom, setExportFrom] = useState<string>("");
+  const [exportTo, setExportTo] = useState<string>("");
+
+  const exportUrl = (() => {
+    const params = new URLSearchParams();
+    if (exportFrom) params.set("from", exportFrom);
+    if (exportTo) params.set("to", exportTo);
+    const qs = params.toString();
+    return `/api/admin/export${qs ? `?${qs}` : ""}`;
+  })();
 
   if (error) return <div className="p-8 text-red-500">エラーが発生しました</div>;
   if (!users) return <div className="p-8">読み込み中...</div>;
@@ -130,7 +140,7 @@ function AdminUsersContent() {
       } else {
         alert("保存に失敗しました");
       }
-    } catch (_error) {
+    } catch {
       alert("通信エラーが発生しました");
     }
   };
@@ -165,7 +175,7 @@ function AdminUsersContent() {
       } else {
         alert("削除に失敗しました");
       }
-    } catch (_error) {
+    } catch {
       alert("通信エラーが発生しました");
     }
   };
@@ -173,13 +183,31 @@ function AdminUsersContent() {
   return (
     <div className="min-h-screen bg-gray-50 text-black p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
           <h1 className="text-3xl font-bold">ユーザー管理 (利用期間設定)</h1>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1 text-sm text-gray-600 bg-white border border-gray-300 rounded px-2 py-1.5">
+              <input
+                type="date"
+                value={exportFrom}
+                onChange={(e) => setExportFrom(e.target.value)}
+                className="bg-transparent text-black text-sm"
+                aria-label="エクスポート開始日"
+              />
+              <span>〜</span>
+              <input
+                type="date"
+                value={exportTo}
+                onChange={(e) => setExportTo(e.target.value)}
+                className="bg-transparent text-black text-sm"
+                aria-label="エクスポート終了日"
+              />
+            </div>
             <a
-              href="/api/admin/export"
+              href={exportUrl}
               download
               className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold px-4 py-2 rounded shadow transition"
+              title={exportFrom || exportTo ? "指定期間のログをダウンロード" : "未指定の場合は過去1年分をダウンロード"}
             >
               CSVダウンロード
             </a>

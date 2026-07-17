@@ -44,7 +44,7 @@ export async function GET() {
     });
 
     return NextResponse.json(activeUsers);
-  } catch (_error) {
+  } catch {
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
   }
 }

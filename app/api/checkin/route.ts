@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
 import { sendNotificationEmail } from "@/lib/mail";
 import { attendanceEligibilityError } from "@/lib/security/attendance";
+import { getAdminSession } from "@/lib/security/adminAuth";
 
 class CheckinError extends Error {
   constructor(message: string, readonly status: number) {
@@ -82,7 +83,10 @@ async function performCheckin(userId: string, requestedSeat: unknown) {
           throw new CheckinError("状態が更新されました。QRコードを読み直してください", 409);
         }
 
-        await tx.attendanceLog.create({ data: { userId, action: newStatus } });
+        // 入室時は選択した座席、退室時は空けた座席を記録する（座席別統計用）
+        await tx.attendanceLog.create({
+          data: { userId, action: newStatus, seat: newStatus === "IN" ? nextSeat : user.currentSeat },
+        });
         return {
           name: user.name,
           parentEmail: user.parentEmail,
@@ -105,6 +109,13 @@ async function performCheckin(userId: string, requestedSeat: unknown) {
 
 export async function POST(req: Request) {
   try {
+    // なりすまし打刻対策: QRトークンは生徒自身が /api/qr から取得できるため、
+    // 打刻はスキャナー端末（管理者セッション）からの呼び出しに限定する
+    const adminSession = await getAdminSession();
+    if (!adminSession) {
+      return NextResponse.json({ error: "打刻はスキャナー端末からのみ実行できます" }, { status: 403 });
+    }
+
     const { token, seat } = await req.json();
     if (!token || typeof token !== "string" || token.length > 2048) {
       return NextResponse.json({ error: "No token provided" }, { status: 400 });

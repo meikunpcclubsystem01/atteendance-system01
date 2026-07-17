@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +17,12 @@ const DEFAULT_LAYOUT = [
 ];
 
 export async function GET() {
+  // 在室状況はログイン済みユーザー（生徒・管理者）のみ閲覧可能
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const usersIn = await prisma.user.findMany({
       where: {
@@ -38,7 +46,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ occupiedSeats, layout });
-  } catch (_error) {
+  } catch {
     return NextResponse.json({ error: "Failed to fetch seats" }, { status: 500 });
   }
 }

@@ -69,6 +69,38 @@ test("server-owned security tables deny Supabase API roles by default", () => {
   }
 });
 
+test("check-in endpoints demand an administrator scanner session", () => {
+  const checkin = source("app/api/checkin/route.ts");
+  const verify = source("app/api/scanner/verify/route.ts");
+  const proxy = source("proxy.ts");
+  const seats = source("app/api/seats/route.ts");
+  assert.match(checkin, /getAdminSession/);
+  assert.match(verify, /getAdminSession/);
+  assert.match(proxy, /\/api\/scanner/);
+  assert.match(proxy, /\/api\/checkin/);
+  assert.match(seats, /getServerSession/);
+});
+
+test("guardian change PINs are hashed with a server-secret HMAC", () => {
+  const pinLib = source("lib/security/pin.ts");
+  assert.match(pinLib, /createHmac\("sha256", secret\)/);
+  for (const path of [
+    "app/api/user/email-change-pin/route.ts",
+    "app/api/user/email-change-verify-pin/route.ts",
+  ]) {
+    const route = source(path);
+    assert.match(route, /from "@\/lib\/security\/pin"/);
+    assert.doesNotMatch(route, /createHash\("sha256"\)\.update\(pin\)/);
+  }
+});
+
+test("HTTP responses carry a Content-Security-Policy", () => {
+  const config = source("next.config.ts");
+  assert.match(config, /Content-Security-Policy/);
+  assert.match(config, /object-src 'none'/);
+  assert.doesNotMatch(config, /X-XSS-Protection/);
+});
+
 test("Next.js is at or above the patched 16.2.5 line", () => {
   const pkg = JSON.parse(source("package.json"));
   const [major, minor, patch] = pkg.dependencies.next.split(".").map(Number);

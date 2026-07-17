@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -19,13 +19,30 @@ export async function GET() {
     }
 
     try {
-        // 過去1年分のデータに制限（メモリ保護）
+        // 期間指定（?from=YYYY-MM-DD&to=YYYY-MM-DD、JST基準）。未指定時は過去1年分（メモリ保護）
+        const { searchParams } = new URL(req.url);
+        const fromParam = searchParams.get("from");
+        const toParam = searchParams.get("to");
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if ((fromParam && !dateRegex.test(fromParam)) || (toParam && !dateRegex.test(toParam))) {
+            return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+        }
+
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
+        const fromDate = fromParam ? new Date(`${fromParam}T00:00:00+09:00`) : oneYearAgo;
+        const toDate = toParam ? new Date(`${toParam}T23:59:59+09:00`) : null;
+        if (Number.isNaN(fromDate.getTime()) || (toDate && Number.isNaN(toDate.getTime()))) {
+            return NextResponse.json({ error: "Invalid date" }, { status: 400 });
+        }
+        if (toDate && fromDate > toDate) {
+            return NextResponse.json({ error: "開始日は終了日より前にしてください" }, { status: 400 });
+        }
+
         const logs = await prisma.attendanceLog.findMany({
             where: {
-                timestamp: { gte: oneYearAgo },
+                timestamp: toDate ? { gte: fromDate, lte: toDate } : { gte: fromDate },
             },
             include: {
                 user: { select: { name: true, studentId: true } },
@@ -72,13 +89,18 @@ export async function GET() {
         const jstDateForFile = new Date(now.getTime() + 9 * 60 * 60 * 1000);
         const yyyyMmDd = jstDateForFile.toISOString().split('T')[0];
 
+        // 期間指定がある場合はファイル名に含める
+        const rangeLabel = fromParam || toParam
+            ? `${fromParam || "all"}_${toParam || yyyyMmDd}`
+            : yyyyMmDd;
+
         // BlobやBufferを使わずともNode.js Responseでは文字として送れる
         // より確実にするためのHeaders設定
         return new NextResponse(finalBuffer, {
             status: 200,
             headers: {
                 "Content-Type": "text/csv; charset=utf-8",
-                "Content-Disposition": `attachment; filename="attendance_logs_${yyyyMmDd}.csv"`,
+                "Content-Disposition": `attachment; filename="attendance_logs_${rangeLabel}.csv"`,
             },
         });
 
