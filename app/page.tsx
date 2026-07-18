@@ -196,7 +196,7 @@ export default function Home() {
             Googleでログイン
           </button>
 
-          <p className="text-gray-500 text-[10px] mt-4">新潟明訓高校 パソコン部</p>
+          <p className="text-gray-500 text-[10px] mt-4">新潟明訓高校　コンピューター同好会</p>
         </div>
       </div>
     );
